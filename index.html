@@ -11,26 +11,38 @@
     <div id="notification" class="notification" role="status" aria-live="polite"></div>
 
     <header class="app-header">
+      <div class="header-identity">
+        <p class="identity-line">Год: <span id="yearLabel">-</span></p>
+        <p class="identity-line">неделя: <span id="weekNumber">-</span></p>
+      </div>
       <div class="header-meta">
-        <p>год: <span id="yearLabel">-</span></p>
-        <p>неделя: <span id="weekNumber">-</span></p>
         <p>прогресс недели: <span id="weekProgressLabel">0%</span></p>
         <p>прогресс дня: <span id="dayProgressLabel">0%</span></p>
       </div>
       <div class="header-actions">
         <button id="prevWeekBtn" type="button">предыдущая неделя</button>
         <button id="todayBtn" type="button">сегодня</button>
+        <button id="tomorrowBtn" type="button">завтра</button>
         <button id="nextWeekBtn" type="button">следующая неделя</button>
         <button id="monthCalendarBtn" type="button">календарь месяца</button>
       </div>
     </header>
 
-    <section>
-      <div id="weekDays" class="week-days"></div>
-    </section>
-
-    <section>
-      <div id="hourGrid" class="hour-grid"></div>
+    <section class="planner-layout">
+      <div class="main-day-panel card">
+        <div class="main-day-head">
+          <p id="mainDayTitle" class="main-day-title">день для редактирования: -</p>
+          <button id="backToTodayBtn" type="button">вернуться к сегодня</button>
+        </div>
+        <div id="mainDayGrid" class="hour-grid"></div>
+      </div>
+      <aside class="tomorrow-panel card">
+        <p class="tomorrow-title">завтра</p>
+        <div id="tomorrowMiniGrid" class="tomorrow-mini-grid"></div>
+      </aside>
+      <div class="week-strip-panel card">
+        <div id="weekStripBottom" class="week-days week-strip"></div>
+      </div>
     </section>
   </main>
 
