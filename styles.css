@@ -1,0 +1,63 @@
+﻿:root {
+  --bg-main: #eff6ff;
+  --bg-card: #ffffff;
+  --bg-soft: #dbeeff;
+  --bg-soft-2: #eaf4ff;
+  --text-main: #18314f;
+  --text-muted: #466482;
+  --border-main: #bdd8f2;
+  --accent: #5aa4e8;
+  --accent-soft: #c8e6ff;
+  --today-ring: #91c8f5;
+  --danger: #d85757;
+  --shadow-soft: 0 8px 20px rgba(58, 117, 170, 0.12);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #f6fbff 0%, var(--bg-main) 100%); color: var(--text-main); font-family: "Segoe UI", Tahoma, sans-serif; }
+.app-shell { max-width: 980px; margin: 0 auto; padding: 24px; }
+.app-header, .week-days, .hour-grid { background: var(--bg-card); border: 1px solid var(--border-main); border-radius: 16px; box-shadow: var(--shadow-soft); }
+.app-header { padding: 18px; margin-bottom: 16px; }
+.header-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.header-meta p { margin: 0; }
+.header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button { border: 1px solid var(--border-main); background: var(--bg-soft-2); color: var(--text-main); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+.week-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 10px; margin-bottom: 16px; }
+.day-btn { border: 1px solid var(--border-main); border-radius: 12px; background: #fafdff; text-align: left; padding: 10px; }
+.day-btn .day-name { display: block; font-size: 13px; color: var(--text-muted); }
+.day-btn .day-date { display: block; font-size: 15px; margin-top: 2px; }
+.day-btn .day-progress { display: block; font-size: 12px; margin-top: 8px; color: var(--text-muted); }
+.day-btn.active { background: var(--accent-soft); border-color: var(--accent); }
+.day-btn.today { box-shadow: inset 0 0 0 1px var(--today-ring); }
+.drag-over { outline: 2px dashed var(--accent); }
+.hour-grid { padding: 10px; }
+.hour-slot { display: grid; grid-template-columns: 90px 1fr; gap: 10px; align-items: center; padding: 8px; border-bottom: 1px dashed var(--border-main); }
+.hour-label { color: var(--text-muted); font-weight: 600; }
+.task-card { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 10px; border: 1px solid var(--border-main); border-radius: 10px; background: #f7fbff; }
+.task-title-btn { border: none; background: transparent; padding: 0; text-align: left; font-weight: 600; justify-self: start; }
+.task-meta, .task-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.status-badge, .priority-badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; background: #edf5ff; color: #3c5f83; }
+.priority-high { border-left: 6px solid #e06a6a; }
+.priority-medium { border-left: 4px solid #6baae8; }
+.priority-low { border-left: 2px solid #84bdd8; }
+.is-done { opacity: 0.6; }
+.is-done .task-title-btn { text-decoration: line-through; }
+.is-overdue { background: #ffeef3; border-color: #efb8ca; }
+.notification { display: none; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #d4a017; background: #fff8e1; color: #5d4600; border-radius: 8px; }
+.notification.is-visible { display: block; }
+.modal { position: fixed; inset: 0; display: none; z-index: 20; }
+.modal.open { display: block; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(14, 34, 58, 0.35); }
+.modal-dialog { position: relative; max-width: 460px; margin: 8vh auto; background: var(--bg-card); border: 1px solid var(--border-main); border-radius: 14px; padding: 16px; }
+.task-form { display: grid; gap: 10px; }
+.task-form label { display: grid; gap: 6px; font-size: 14px; }
+.task-form input, .task-form select { border: 1px solid var(--border-main); border-radius: 8px; padding: 8px; }
+.checkbox-row { display: flex !important; align-items: center; gap: 8px; }
+.modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.danger { border-color: #f0b6b6; background: #ffecec; color: #8b1f1f; }
+.month-dialog { max-width: 520px; }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.month-day { min-height: 56px; position: relative; }
+.month-day .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; }
+.month-day.today { box-shadow: inset 0 0 0 1px var(--today-ring); }
+.month-day.active { background: var(--accent-soft); border-color: var(--accent); }
+@media (max-width: 820px) { .week-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hour-slot { grid-template-columns: 72px 1fr; } }

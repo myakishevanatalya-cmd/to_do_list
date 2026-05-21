@@ -1,0 +1,81 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Планировщик</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <div id="notification" class="notification" role="status" aria-live="polite"></div>
+
+    <header class="app-header">
+      <div class="header-meta">
+        <p>год: <span id="yearLabel">-</span></p>
+        <p>неделя: <span id="weekNumber">-</span></p>
+        <p>прогресс недели: <span id="weekProgressLabel">0%</span></p>
+        <p>прогресс дня: <span id="dayProgressLabel">0%</span></p>
+      </div>
+      <div class="header-actions">
+        <button id="prevWeekBtn" type="button">предыдущая неделя</button>
+        <button id="todayBtn" type="button">сегодня</button>
+        <button id="nextWeekBtn" type="button">следующая неделя</button>
+        <button id="monthCalendarBtn" type="button">календарь месяца</button>
+      </div>
+    </header>
+
+    <section>
+      <div id="weekDays" class="week-days"></div>
+    </section>
+
+    <section>
+      <div id="hourGrid" class="hour-grid"></div>
+    </section>
+  </main>
+
+  <div id="taskModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="task"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+      <h2 id="taskModalTitle">задача</h2>
+      <form id="taskForm" class="task-form">
+        <label>название
+          <input id="taskTitleInput" name="title" type="text" maxlength="120" required>
+        </label>
+        <label>дата
+          <input id="taskDateInput" name="date" type="date" required>
+        </label>
+        <label>время
+          <select id="taskTimeInput" name="time" required></select>
+        </label>
+        <label>приоритет
+          <select id="taskPriorityInput" name="priority">
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+          </select>
+        </label>
+        <label class="checkbox-row">
+          <input id="taskRecurringInput" name="isRecurring" type="checkbox">
+          <span>повторяемость еженедельно</span>
+        </label>
+        <div class="modal-actions">
+          <button id="deleteTaskBtn" type="button" class="danger">удалить</button>
+          <button type="submit">сохранить</button>
+          <button id="cancelTaskBtn" type="button">отмена</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="monthModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="month"></div>
+    <div class="modal-dialog month-dialog" role="dialog" aria-modal="true" aria-labelledby="monthModalTitle">
+      <h2 id="monthModalTitle">календарь месяца</h2>
+      <div id="monthGrid" class="month-grid"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
