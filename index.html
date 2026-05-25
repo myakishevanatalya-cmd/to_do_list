@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Планировщик</title>
+  <title>РИТМ - планировщик</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,36 +11,76 @@
     <div id="notification" class="notification" role="status" aria-live="polite"></div>
 
     <header class="app-header">
-      <div class="header-identity">
-        <p class="identity-line">Год: <span id="yearLabel">-</span></p>
-        <p class="identity-line">неделя: <span id="weekNumber">-</span></p>
+      <div class="header-topline">
+        <div class="brand-block">
+          <img src="rhythm-mark.svg" alt="ритм логотип" class="brand-image">
+          <div class="brand-copy">
+            <h1 class="brand-title">РИТМ</h1>
+            <p class="brand-subtitle">планировщик задач по времени</p>
+            <p class="brand-note">личное и рабочее в одном аккуратном календаре</p>
+          </div>
+        </div>
+        <div class="header-identity">
+          <p class="identity-line">Год: <span id="yearLabel">-</span></p>
+          <p class="identity-line">неделя: <span id="weekNumber">-</span></p>
+        </div>
+        <div class="header-controls">
+          <div class="header-view-switch">
+            <button id="viewDayBtn" type="button" class="view-btn active">день</button>
+            <button id="viewWeekBtn" type="button" class="view-btn">неделя</button>
+            <button id="viewMonthBtn" type="button" class="view-btn">месяц</button>
+            <button id="viewYearBtn" type="button" class="view-btn">год</button>
+          </div>
+          <div class="header-quick-actions">
+            <label class="header-filter">фильтр:
+              <select id="categoryFilterSelect">
+                <option value="all">все</option>
+                <option value="personal">личное</option>
+                <option value="work">рабочее</option>
+              </select>
+            </label>
+            <button id="headerThemeBtn" type="button" class="header-theme-btn">стиль: строгий</button>
+            <button id="compactHeaderBtn" type="button" class="header-density-btn">компактно</button>
+          </div>
+        </div>
       </div>
       <div class="header-meta">
         <p>прогресс недели: <span id="weekProgressLabel">0%</span></p>
         <p>прогресс дня: <span id="dayProgressLabel">0%</span></p>
-      </div>
-      <div class="header-actions">
-        <button id="prevWeekBtn" type="button">предыдущая неделя</button>
-        <button id="todayBtn" type="button">сегодня</button>
-        <button id="tomorrowBtn" type="button">завтра</button>
-        <button id="nextWeekBtn" type="button">следующая неделя</button>
-        <button id="monthCalendarBtn" type="button">календарь месяца</button>
+        <div class="header-legend">
+          <span class="legend-item personal">личное</span>
+          <span class="legend-item work">рабочее</span>
+        </div>
+        <div class="header-counters">
+          <span>всего: <strong id="totalCountLabel">0</strong></span>
+          <span>выполнено: <strong id="doneCountLabel">0</strong></span>
+        </div>
       </div>
     </header>
 
     <section class="planner-layout">
       <div class="main-day-panel card">
         <div class="main-day-head">
-          <p id="mainDayTitle" class="main-day-title">день для редактирования: -</p>
-          <button id="backToTodayBtn" type="button">вернуться к сегодня</button>
+          <p id="mainDayTitle" class="main-day-title">-</p>
+          <div class="period-nav">
+            <button id="prevPeriodBtn" type="button">назад</button>
+            <button id="backToTodayBtn" type="button">сегодня</button>
+            <button id="nextPeriodBtn" type="button">вперед</button>
+          </div>
         </div>
         <div id="mainDayGrid" class="hour-grid"></div>
       </div>
       <aside class="tomorrow-panel card">
-        <p class="tomorrow-title">завтра</p>
+        <p class="tomorrow-title">обзор - завтра</p>
         <div id="tomorrowMiniGrid" class="tomorrow-mini-grid"></div>
       </aside>
       <div class="week-strip-panel card">
+        <p class="week-counters-legend">
+          <strong>легенда:</strong>
+          <span class="legend-chip in-progress">в - в работе</span>
+          <span class="legend-chip done">с - сделано</span>
+          <span class="legend-chip overdue">п - просрочено</span>
+        </p>
         <div id="weekStripBottom" class="week-days week-strip"></div>
       </div>
     </section>
@@ -60,6 +100,9 @@
         <label>время
           <select id="taskTimeInput" name="time" required></select>
         </label>
+        <label>длительность
+          <select id="taskDurationInput" name="durationHours" required></select>
+        </label>
         <label>приоритет
           <select id="taskPriorityInput" name="priority">
             <option value="low">low</option>
@@ -67,9 +110,28 @@
             <option value="high">high</option>
           </select>
         </label>
+        <label>тип задачи
+          <select id="taskCategoryInput" name="category">
+            <option value="personal">личное</option>
+            <option value="work">рабочее</option>
+          </select>
+        </label>
         <label class="checkbox-row">
           <input id="taskRecurringInput" name="isRecurring" type="checkbox">
           <span>повторяемость еженедельно</span>
+        </label>
+        <fieldset id="taskRecurringDaysGroup" class="recurring-days" disabled>
+          <legend>дни повторения</legend>
+          <label><input type="checkbox" name="recurringDays" value="0"> пн</label>
+          <label><input type="checkbox" name="recurringDays" value="1"> вт</label>
+          <label><input type="checkbox" name="recurringDays" value="2"> ср</label>
+          <label><input type="checkbox" name="recurringDays" value="3"> чт</label>
+          <label><input type="checkbox" name="recurringDays" value="4"> пт</label>
+          <label><input type="checkbox" name="recurringDays" value="5"> сб</label>
+          <label><input type="checkbox" name="recurringDays" value="6"> вс</label>
+        </fieldset>
+        <label>повторять до даты
+          <input id="taskRecurringUntilInput" name="recurringUntil" type="date" disabled>
         </label>
         <div class="modal-actions">
           <button id="deleteTaskBtn" type="button" class="danger">удалить</button>
@@ -83,8 +145,30 @@
   <div id="monthModal" class="modal" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="month"></div>
     <div class="modal-dialog month-dialog" role="dialog" aria-modal="true" aria-labelledby="monthModalTitle">
-      <h2 id="monthModalTitle">календарь месяца</h2>
+      <div class="month-modal-head">
+        <button id="monthPrevBtn" type="button" class="month-nav-btn" aria-label="предыдущий месяц">◀</button>
+        <div class="month-head-center">
+          <h2 id="monthModalTitle">календарь месяца</h2>
+          <p id="monthModalYear" class="month-modal-year">-</p>
+          <p id="monthModalLabel" class="month-modal-label">-</p>
+        </div>
+        <button id="monthNextBtn" type="button" class="month-nav-btn" aria-label="следующий месяц">▶</button>
+      </div>
       <div id="monthGrid" class="month-grid"></div>
+    </div>
+  </div>
+
+  <div id="recurringActionModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="recurring-action"></div>
+    <div class="modal-dialog recurring-action-dialog" role="dialog" aria-modal="true" aria-labelledby="recurringActionTitle">
+      <h2 id="recurringActionTitle">повторяющаяся задача</h2>
+      <p id="recurringActionText">применить действие к этой задаче или к серии?</p>
+      <p id="recurringActionHint" class="recurring-action-hint" hidden>если выбрать всю серию для выполнения, серия завершится на текущей дате.</p>
+      <div class="modal-actions recurring-action-actions">
+        <button id="recurringOnlyBtn" type="button">только этот экземпляр</button>
+        <button id="recurringSeriesBtn" type="button">всю серию</button>
+        <button id="recurringCancelBtn" type="button">отмена</button>
+      </div>
     </div>
   </div>
 
