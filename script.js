@@ -1,2008 +1,2011 @@
 ﻿(function () {
-  const STORAGE_KEY = "weeklyHourlyPlanner.v1";
-  const DAY_NAMES = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-  const MONTH_NAMES = [
-    "январь", "февраль", "март", "апрель", "май", "июнь",
-    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
-  ];
-  const START_HOUR = 9;
-  const END_HOUR = 21;
+  'use strict';
 
-  const DEFAULT_STORAGE_DATA = {
-    schemaVersion: 1,
+  var STORAGE_KEY = 'planner.v2';
+  var SETTINGS_KEY = 'planner.v2.settings';
+  var UNDO_KEY = 'planner.v2.undo';
+  var ACCORDION_KEY = 'planner.v2.accordions';
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var DEFAULT_SETTINGS = {
+    name: 'To Do List',
+    workStart: '09:00',
+    workEnd: '18:00',
+    dayLimit: 8,
+    theme: 'warm'
+  };
+
+  var state = {
     tasks: [],
-    recurringSeries: [],
-    recurringExceptions: [],
-    uiPrefs: {
-      categoryFilter: "all",
-      compactHeader: false,
-      headerTheme: "soft"
-    }
+    editingId: null,
+    editingSeriesId: '',
+    pendingRemoveTaskId: '',
+    pendingMoveTaskId: '',
+    pendingMoveDate: '',
+    undoStack: [],
+    statusFilter: 'all',
+    categoryFilter: 'all',
+    search: '',
+    viewMode: 'today',
+    weekAnchor: startOfWeek(new Date()),
+    monthAnchor: startOfMonth(new Date()),
+    selectedMonthDate: toISODate(new Date()),
+    settings: DEFAULT_SETTINGS
   };
 
-  const now = new Date();
-  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const state = {
-    activeDate: new Date(todayDate),
-    currentMonthView: new Date(todayDate.getFullYear(), todayDate.getMonth(), 1),
-    tasks: [],
-    recurringSeries: [],
-    recurringExceptions: [],
-    ui: {
-      taskModalMode: "create",
-      editingTaskId: null,
-      editingSeriesId: null,
-      mainDate: new Date(todayDate),
-      viewMode: "day",
-      categoryFilter: "all",
-      compactHeader: false,
-      headerTheme: "soft"
-    }
+  var el = {
+    appTitle: document.getElementById('appTitle'),
+    todayLabel: document.getElementById('todayLabel'),
+    taskForm: document.getElementById('taskForm'),
+    titleInput: document.getElementById('titleInput'),
+    dateInput: document.getElementById('dateInput'),
+    timeInput: document.getElementById('timeInput'),
+    durationInput: document.getElementById('durationInput'),
+    priorityInput: document.getElementById('priorityInput'),
+    categoryInput: document.getElementById('categoryInput'),
+    noteInput: document.getElementById('noteInput'),
+    recurrenceInput: document.getElementById('recurrenceInput'),
+    repeatCountInput: document.getElementById('repeatCountInput'),
+    repeatUntilInput: document.getElementById('repeatUntilInput'),
+    repeatDaysBox: document.getElementById('repeatDaysBox'),
+    repeatDays: Array.prototype.slice.call(document.querySelectorAll('.repeat-day')),
+    accordions: Array.prototype.slice.call(document.querySelectorAll('.accordion')),
+    repeatSummary: document.getElementById('repeatSummary'),
+    formFeedback: document.getElementById('formFeedback'),
+    editScopeRow: document.getElementById('editScopeRow'),
+    editScopeSelect: document.getElementById('editScopeSelect'),
+    saveBtn: document.getElementById('saveBtn'),
+    cancelEditBtn: document.getElementById('cancelEditBtn'),
+    clearCompletedBtn: document.getElementById('clearCompletedBtn'),
+    undoBtn: document.getElementById('undoBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    weeklyReportBtn: document.getElementById('weeklyReportBtn'),
+    importInput: document.getElementById('importInput'),
+    viewModeSelect: document.getElementById('viewModeSelect'),
+    viewTabs: Array.prototype.slice.call(document.querySelectorAll('.view-tab')),
+    statusFilter: document.getElementById('statusFilter'),
+    categoryFilter: document.getElementById('categoryFilter'),
+    searchInput: document.getElementById('searchInput'),
+    listPanel: document.getElementById('listPanel'),
+    weekPanel: document.getElementById('weekPanel'),
+    weekGrid: document.getElementById('weekGrid'),
+    weekLabel: document.getElementById('weekLabel'),
+    prevWeekBtn: document.getElementById('prevWeekBtn'),
+    nextWeekBtn: document.getElementById('nextWeekBtn'),
+    thisWeekBtn: document.getElementById('thisWeekBtn'),
+    monthPanel: document.getElementById('monthPanel'),
+    monthGrid: document.getElementById('monthGrid'),
+    monthLabel: document.getElementById('monthLabel'),
+    monthDayPanel: document.getElementById('monthDayPanel'),
+    monthDayTitle: document.getElementById('monthDayTitle'),
+    monthDayList: document.getElementById('monthDayList'),
+    monthCreateTaskBtn: document.getElementById('monthCreateTaskBtn'),
+    prevMonthBtn: document.getElementById('prevMonthBtn'),
+    nextMonthBtn: document.getElementById('nextMonthBtn'),
+    thisMonthBtn: document.getElementById('thisMonthBtn'),
+    taskList: document.getElementById('taskList'),
+    emptyState: document.getElementById('emptyState'),
+    emptyHint: document.getElementById('emptyHint'),
+    emptyActions: document.getElementById('emptyActions'),
+    templateButtons: Array.prototype.slice.call(document.querySelectorAll('[data-template]')),
+    statTotal: document.getElementById('statTotal'),
+    statOpen: document.getElementById('statOpen'),
+    statDone: document.getElementById('statDone'),
+    statProgress: document.getElementById('statProgress'),
+    focusDate: document.getElementById('focusDate'),
+    focusNextTask: document.getElementById('focusNextTask'),
+    focusOverdue: document.getElementById('focusOverdue'),
+    focusLoad: document.getElementById('focusLoad'),
+    focusTip: document.getElementById('focusTip'),
+    weekPlanRange: document.getElementById('weekPlanRange'),
+    weekPlanGrid: document.getElementById('weekPlanGrid'),
+    weekNoteThemes: document.getElementById('weekNoteThemes'),
+    weekOverload: document.getElementById('weekOverload'),
+    weekAdvice: document.getElementById('weekAdvice'),
+    aiTips: document.getElementById('aiTips'),
+    plannerNameInput: document.getElementById('plannerNameInput'),
+    workStartInput: document.getElementById('workStartInput'),
+    workEndInput: document.getElementById('workEndInput'),
+    dayLimitInput: document.getElementById('dayLimitInput'),
+    themeSelect: document.getElementById('themeSelect'),
+    saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+    clearAllBtn: document.getElementById('clearAllBtn'),
+    confirmModal: document.getElementById('confirmModal'),
+    confirmTitle: document.getElementById('confirmTitle'),
+    confirmText: document.getElementById('confirmText'),
+    confirmSeriesBtn: document.getElementById('confirmSeriesBtn'),
+    confirmSingleBtn: document.getElementById('confirmSingleBtn'),
+    confirmCancelBtn: document.getElementById('confirmCancelBtn')
   };
 
-  const dragState = { payload: null, ghostEl: null };
-  const recurringActionState = { task: null, type: null };
+  init();
 
-  const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const formatTimeByHour = (hour) => `${String(hour).padStart(2, "0")}:00`;
-  const parseHour = (time) => Number(String(time).split(":")[0]);
-  const createId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  const getTaskDuration = (task) => {
-    const raw = Number(task.durationHours);
-    return Number.isFinite(raw) && raw > 0 ? raw : 1;
-  };
-  const isSameDate = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const getDateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const getTodayDate = () => getDateOnly(new Date());
-  const getTomorrowDate = () => {
-    const t = getTodayDate();
-    t.setDate(t.getDate() + 1);
-    return t;
-  };
-
-  const getWeekStart = (date) => {
-    const d = getDateOnly(date);
-    const day = d.getDay();
-    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-    return d;
-  };
-
-  const getWeekEnd = (date) => {
-    const d = getWeekStart(date);
-    d.setDate(d.getDate() + 6);
-    return d;
-  };
-
-  const getISOWeekNumber = (date) => {
-    const d = getDateOnly(date);
-    const day = d.getDay() || 7;
-    d.setDate(d.getDate() + 4 - day);
-    const y = new Date(d.getFullYear(), 0, 1);
-    return Math.floor(Math.floor((d - y) / 86400000) / 7) + 1;
-  };
-
-  const getYearLabel = (date) => {
-    const sy = getWeekStart(date).getFullYear();
-    const ey = getWeekEnd(date).getFullYear();
-    return sy === ey ? String(sy) : `${sy}-${ey}`;
-  };
-
-  function showNotification(message) {
-    const el = document.getElementById("notification");
-    if (!el) {
-      return;
-    }
-    el.textContent = message;
-    el.classList.add("is-visible");
-  }
-
-  function cloneDefaultStorageData() {
-    return {
-      schemaVersion: 1,
-      tasks: [],
-      recurringSeries: [],
-      recurringExceptions: [],
-      uiPrefs: {
-        categoryFilter: "all",
-        compactHeader: false,
-        headerTheme: "soft"
-      }
-    };
-  }
-
-  function normalizeUiPrefs(prefs) {
-    const raw = prefs && typeof prefs === "object" ? prefs : {};
-    const categoryFilter = raw.categoryFilter === "personal" || raw.categoryFilter === "work" ? raw.categoryFilter : "all";
-    const compactHeader = !!raw.compactHeader;
-    const headerTheme = raw.headerTheme === "strict" ? "strict" : "soft";
-    return { categoryFilter, compactHeader, headerTheme };
-  }
-
-  function saveToStorage() {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          schemaVersion: 1,
-          tasks: state.tasks,
-          recurringSeries: state.recurringSeries,
-          recurringExceptions: state.recurringExceptions,
-          uiPrefs: normalizeUiPrefs(state.ui)
-        })
-      );
-      return true;
-    } catch (_) {
-      showNotification("ошибка хранения: данные не удалось сохранить");
-      return false;
-    }
-  }
-
-  function loadFromStorage() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        const empty = cloneDefaultStorageData();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
-        return empty;
-      }
-
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed.tasks) || !Array.isArray(parsed.recurringSeries) || !Array.isArray(parsed.recurringExceptions)) {
-        throw new Error("invalid storage shape");
-      }
-      return parsed;
-    } catch (_) {
-      showNotification("ошибка данных: данные повреждены");
-      return cloneDefaultStorageData();
-    }
-  }
-
-  function getWeekDays(date) {
-    const s = getWeekStart(date);
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(s);
-      d.setDate(s.getDate() + i);
-      return d;
+  function init() {
+    state.tasks = loadData();
+    state.settings = loadSettings();
+    state.undoStack = loadUndoStack();
+    applySettingsToUi();
+    el.todayLabel.textContent = new Date().toLocaleDateString('ru-RU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
-  }
 
-  function getTasksForDate(dateStr) {
-    return state.tasks.filter((t) => t.date === dateStr);
-  }
-
-  function getTasksForWeek(date) {
-    const ws = getWeekStart(date);
-    const we = getWeekEnd(date);
-    return state.tasks.filter((t) => {
-      const d = new Date(`${t.date}T00:00:00`);
-      return d >= ws && d <= we;
+    el.taskForm.addEventListener('submit', onSubmit);
+    el.cancelEditBtn.addEventListener('click', resetForm);
+    el.clearCompletedBtn.addEventListener('click', clearCompleted);
+    el.undoBtn.addEventListener('click', undoLastAction);
+    el.exportBtn.addEventListener('click', exportData);
+    el.weeklyReportBtn.addEventListener('click', exportWeeklyReport);
+    el.importInput.addEventListener('change', importData);
+    el.confirmSeriesBtn.addEventListener('click', function () { confirmSeriesAction('series'); });
+    el.confirmSingleBtn.addEventListener('click', function () { confirmSeriesAction('single'); });
+    el.confirmCancelBtn.addEventListener('click', closeConfirmModal);
+    el.confirmModal.addEventListener('click', function (event) {
+      if (event.target === el.confirmModal) {
+        closeConfirmModal();
+      }
     });
-  }
-
-  function calculateProgress(tasks) {
-    if (!tasks.length) {
-      return 0;
-    }
-    return Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100);
-  }
-
-  function getTaskEffectiveStatus(task) {
-    if (task.status === "done") {
-      return "done";
-    }
-    const hour = Number(task.time.split(":")[0]);
-    const durationHours = getTaskDuration(task);
-    const end = new Date(`${task.date}T00:00:00`);
-    end.setHours(hour + durationHours, 0, 0, 0);
-    return Date.now() > end.getTime() ? "overdue" : (task.status || "planning");
-  }
-
-  function getException(seriesId, date) {
-    return state.recurringExceptions.find((e) => e.seriesId === seriesId && e.date === date) || null;
-  }
-
-  function getSeriesById(seriesId) {
-    return state.recurringSeries.find((series) => series.id === seriesId) || null;
-  }
-
-  function getDowFromDateStr(dateStr) {
-    const d = new Date(`${dateStr}T00:00:00`);
-    return (d.getDay() + 6) % 7;
-  }
-
-  function normalizeSeriesDays(series) {
-    if (Array.isArray(series.daysOfWeek)) {
-      return Array.from(new Set(series.daysOfWeek
-        .map((d) => Number(d))
-        .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))).sort((a, b) => a - b);
-    }
-    if (Number.isInteger(series.dayOfWeek) && series.dayOfWeek >= 0 && series.dayOfWeek <= 6) {
-      return [series.dayOfWeek];
-    }
-    return [];
-  }
-
-  function getSeriesDays(series) {
-    return normalizeSeriesDays(series);
-  }
-
-  function getRecurringDaysInputs() {
-    return Array.from(document.querySelectorAll("input[name='recurringDays']"));
-  }
-
-  function getSelectedRecurringDays() {
-    return getRecurringDaysInputs()
-      .filter((input) => input.checked)
-      .map((input) => Number(input.value))
-      .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
-      .sort((a, b) => a - b);
-  }
-
-  function setRecurringDaysSelection(days) {
-    const daySet = new Set((days || []).map((d) => Number(d)));
-    getRecurringDaysInputs().forEach((input) => {
-      input.checked = daySet.has(Number(input.value));
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !el.confirmModal.classList.contains('hidden')) {
+        closeConfirmModal();
+      }
     });
-  }
 
-  function setRecurringDaysEnabled(enabled) {
-    const group = document.getElementById("taskRecurringDaysGroup");
-    if (!group) {
-      return;
-    }
-    group.disabled = !enabled;
-  }
-
-  function isDateWithinSeriesRange(series, date) {
-    if (series.startDate && date < series.startDate) {
-      return false;
-    }
-    if (series.untilDate && date > series.untilDate) {
-      return false;
-    }
-    return true;
-  }
-
-  function getRecurringTaskForSlot(date, time) {
-    const dateObj = new Date(`${date}T00:00:00`);
-    const dow = (dateObj.getDay() + 6) % 7;
-    const slotHour = parseHour(time);
-
-    for (const series of state.recurringSeries) {
-      const days = getSeriesDays(series);
-      if (!days.includes(dow)) {
-        continue;
-      }
-      if (!isDateWithinSeriesRange(series, date)) {
-        continue;
-      }
-      const startHour = parseHour(series.time);
-      const durationHours = getTaskDuration(series);
-      const endHourExclusive = startHour + durationHours;
-      if (slotHour < startHour || slotHour >= endHourExclusive) {
-        continue;
-      }
-      const ex = getException(series.id, date);
-      if (ex && ex.type === "deleted") {
-        return null;
-      }
-
-      return {
-        id: `series-${series.id}-${date}`,
-        seriesId: series.id,
-        isRecurringInstance: true,
-        title: series.title,
-        date,
-        time,
-        priority: series.priority || "medium",
-        category: series.category || "personal",
-        durationHours,
-        status: ex && ex.type === "done" ? "done" : "planning"
-      };
+    for (var t = 0; t < el.templateButtons.length; t += 1) {
+      el.templateButtons[t].addEventListener('click', function () {
+        applyQuickTemplate(this.getAttribute('data-template') || '');
+      });
     }
 
-    return null;
-  }
+    initAccordions();
 
-  function isTaskCoveringSlot(task, time) {
-    const slotHour = parseHour(time);
-    const startHour = parseHour(task.time);
-    const durationHours = getTaskDuration(task);
-    const endHourExclusive = startHour + durationHours;
-    return slotHour >= startHour && slotHour < endHourExclusive;
-  }
-
-  function canTaskFitInDay(startHour, durationHours) {
-    return startHour >= START_HOUR && startHour <= END_HOUR && (startHour + durationHours - 1) <= END_HOUR;
-  }
-
-  function canPlaceTaskSpan(date, startTime, durationHours, excludeRef) {
-    const startHour = parseHour(startTime);
-    if (!canTaskFitInDay(startHour, durationHours)) {
-      return false;
-    }
-    for (let hour = startHour; hour < startHour + durationHours; hour += 1) {
-      const time = formatTimeByHour(hour);
-      if (getSlotEntry(date, time, excludeRef)) {
-        return false;
+    el.recurrenceInput.addEventListener('change', onRecurrenceChange);
+    el.dateInput.addEventListener('change', function () {
+      syncRepeatUntilMin();
+      if (el.recurrenceInput.value === 'weekly') {
+        applyRecurrencePreset('weekly');
       }
-    }
-    return true;
-  }
-
-  function getSlotEntry(date, time, excludeRef, forDisplay) {
-    const direct = state.tasks.find((t) => {
-      if (t.date !== date) {
-        return false;
-      }
-      if (excludeRef && excludeRef.kind === "task" && t.id === excludeRef.id) {
-        return false;
-      }
-      return isTaskCoveringSlot(t, time);
+      updateRepeatSummary();
     });
-    if (direct) {
-      if (forDisplay && !isCategoryVisible(direct.category)) {
-        return null;
-      }
-      return { kind: "task", item: direct, isStart: parseHour(direct.time) === parseHour(time) };
+    el.repeatCountInput.addEventListener('change', updateRepeatSummary);
+    el.repeatUntilInput.addEventListener('change', updateRepeatSummary);
+
+    el.editScopeSelect.addEventListener('change', applyEditScopeMode);
+
+    for (var i = 0; i < el.repeatDays.length; i += 1) {
+      el.repeatDays[i].addEventListener('click', function () {
+        if (this.disabled) return;
+        var pressed = this.getAttribute('aria-pressed') === 'true';
+        setRepeatDayState(this, !pressed);
+        updateRepeatSummary();
+      });
     }
 
-    const recurring = getRecurringTaskForSlot(date, time);
-    if (recurring && (!excludeRef || !(excludeRef.kind === "series" && recurring.seriesId === excludeRef.id && recurring.date === excludeRef.date))) {
-      if (forDisplay && !isCategoryVisible(recurring.category)) {
-        return null;
-      }
-      return { kind: "series", item: recurring, isStart: parseHour(recurring.time) === parseHour(time) };
-    }
-
-    return null;
-  }
-
-  function getVisibleEntriesForDate(dateStr) {
-    const entries = [];
-    for (let h = START_HOUR; h <= END_HOUR; h += 1) {
-      const time = `${String(h).padStart(2, "0")}:00`;
-      const entry = getSlotEntry(dateStr, time, null, true);
-      if (entry && entry.isStart) {
-        entries.push({ time, ...entry });
-      }
-    }
-    return entries;
-  }
-
-  function isCategoryVisible(category) {
-    if (state.ui.categoryFilter === "all") {
-      return true;
-    }
-    return (category || "personal") === state.ui.categoryFilter;
-  }
-
-  function filterTasksByCategory(tasks) {
-    if (state.ui.categoryFilter === "all") {
-      return tasks;
-    }
-    return tasks.filter((task) => (task.category || "personal") === state.ui.categoryFilter);
-  }
-
-  function collectVisibleEntriesForRange(startDate, endDate) {
-    const entries = [];
-    const cursor = new Date(startDate);
-    while (cursor <= endDate) {
-      const dateStr = formatDate(cursor);
-      for (let h = START_HOUR; h <= END_HOUR; h += 1) {
-        const time = `${String(h).padStart(2, "0")}:00`;
-        const entry = getSlotEntry(dateStr, time, null, true);
-        if (entry && entry.isStart) {
-          entries.push(entry);
-        }
-      }
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return entries;
-  }
-
-  function getHeaderCounters() {
-    if (state.ui.viewMode === "week") {
-      const weekStart = getWeekStart(state.activeDate);
-      const weekEnd = getWeekEnd(state.activeDate);
-      return collectVisibleEntriesForRange(weekStart, weekEnd);
-    }
-
-    if (state.ui.viewMode === "month") {
-      const monthStart = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth(), 1);
-      const monthEnd = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() + 1, 0);
-      return collectVisibleEntriesForRange(monthStart, monthEnd);
-    }
-
-    if (state.ui.viewMode === "year") {
-      const year = state.ui.mainDate.getFullYear();
-      const yearStart = new Date(year, 0, 1);
-      const yearEnd = new Date(year, 11, 31);
-      return collectVisibleEntriesForRange(yearStart, yearEnd);
-    }
-
-    return getVisibleEntriesForDate(formatDate(state.ui.mainDate)).map((entry) => entry);
-  }
-
-  function getExcludeRefFromPayload(payload) {
-    if (!payload) {
-      return null;
-    }
-    if (payload.kind === "task") {
-      return { kind: "task", id: payload.id };
-    }
-    return { kind: "series", id: payload.id, date: payload.date };
-  }
-
-  function clearDropZoneHighlights() {
-    document.querySelectorAll(".drop-zone-ready, .drop-zone-blocked, .drag-over").forEach((el) => {
-      el.classList.remove("drop-zone-ready", "drop-zone-blocked", "drag-over");
+    el.viewModeSelect.addEventListener('change', function () {
+      state.viewMode = el.viewModeSelect.value;
+      render();
     });
+
+    for (var v = 0; v < el.viewTabs.length; v += 1) {
+      el.viewTabs[v].addEventListener('click', function () {
+        state.viewMode = this.getAttribute('data-view') || 'today';
+        el.viewModeSelect.value = state.viewMode;
+        render();
+      });
+    }
+
+    el.statusFilter.addEventListener('change', function () {
+      state.statusFilter = el.statusFilter.value;
+      render();
+    });
+
+    el.categoryFilter.addEventListener('change', function () {
+      state.categoryFilter = el.categoryFilter.value;
+      render();
+    });
+
+    el.searchInput.addEventListener('input', function () {
+      state.search = (el.searchInput.value || '').trim().toLowerCase();
+      render();
+    });
+
+    el.prevWeekBtn.addEventListener('click', function () {
+      state.weekAnchor = addDays(state.weekAnchor, -7);
+      renderWeek();
+    });
+
+    el.nextWeekBtn.addEventListener('click', function () {
+      state.weekAnchor = addDays(state.weekAnchor, 7);
+      renderWeek();
+    });
+
+    el.thisWeekBtn.addEventListener('click', function () {
+      state.weekAnchor = startOfWeek(new Date());
+      renderWeek();
+    });
+
+    el.prevMonthBtn.addEventListener('click', function () {
+      state.monthAnchor = addMonths(state.monthAnchor, -1);
+      renderMonth();
+    });
+
+    el.nextMonthBtn.addEventListener('click', function () {
+      state.monthAnchor = addMonths(state.monthAnchor, 1);
+      renderMonth();
+    });
+
+    el.thisMonthBtn.addEventListener('click', function () {
+      state.monthAnchor = startOfMonth(new Date());
+      state.selectedMonthDate = toISODate(new Date());
+      renderMonth();
+    });
+
+    el.monthCreateTaskBtn.addEventListener('click', function () {
+      selectDateForNewTask(state.selectedMonthDate);
+    });
+
+    el.saveSettingsBtn.addEventListener('click', function () { saveSettingsFromUi(false); });
+    el.clearAllBtn.addEventListener('click', clearAllTasks);
+    el.plannerNameInput.addEventListener('input', autoSaveSettings);
+    el.workStartInput.addEventListener('change', autoSaveSettings);
+    el.workEndInput.addEventListener('change', autoSaveSettings);
+    el.dayLimitInput.addEventListener('input', autoSaveSettings);
+    el.themeSelect.addEventListener('change', autoSaveSettings);
+
+    resetForm();
+    syncRepeatUntilMin();
+    render();
   }
 
-  function highlightAvailableDropZones(payload) {
-    clearDropZoneHighlights();
-    if (!payload) {
+  function onSubmit(event) {
+    event.preventDefault();
+    clearFeedback();
+    var wasEditing = !!state.editingId;
+
+    var title = (el.titleInput.value || '').trim();
+    var date = el.dateInput.value;
+    var time = el.timeInput.value;
+    var duration = Number(el.durationInput.value);
+    var priority = el.priorityInput.value;
+    var category = el.categoryInput.value;
+    var note = (el.noteInput.value || '').trim();
+    var recurrence = el.recurrenceInput.value;
+    var repeatCount = Math.max(1, Number(el.repeatCountInput.value) || 1);
+    var repeatUntil = recurrence !== 'none' ? (el.repeatUntilInput.value || '') : '';
+    var repeatDays = getSelectedRepeatDays();
+
+    if (!title || !date || !time || !Number.isFinite(duration)) {
+      showFeedback('Заполни название, дату, время и длительность.');
       return;
     }
 
-    const excludeRef = getExcludeRefFromPayload(payload);
-    const mainDateStr = formatDate(state.ui.mainDate);
-    const durationHours = payload.durationHours || 1;
-
-    document.querySelectorAll("#mainDayGrid .hour-slot").forEach((slot) => {
-      const time = slot.dataset.time;
-      if (!time) {
-        return;
-      }
-      const isFree = canPlaceTaskSpan(mainDateStr, time, durationHours, excludeRef);
-      slot.classList.add(isFree ? "drop-zone-ready" : "drop-zone-blocked");
-    });
-
-    document.querySelectorAll("#weekStripBottom .day-btn").forEach((dayBtn) => {
-      const date = dayBtn.dataset.date;
-      if (!date) {
-        return;
-      }
-      const isFree = canPlaceTaskSpan(date, payload.time, durationHours, excludeRef);
-      dayBtn.classList.add(isFree ? "drop-zone-ready" : "drop-zone-blocked");
-    });
-  }
-
-  function createDragGhost(task) {
-    const ghost = document.createElement("div");
-    ghost.className = "drag-ghost";
-    ghost.textContent = `${task.time} - ${task.title}`;
-    document.body.appendChild(ghost);
-    dragState.ghostEl = ghost;
-    return ghost;
-  }
-
-  function clearDragGhost() {
-    if (dragState.ghostEl && dragState.ghostEl.parentNode) {
-      dragState.ghostEl.parentNode.removeChild(dragState.ghostEl);
-    }
-    dragState.ghostEl = null;
-  }
-
-  function getMonthCategoryIndicator(dateStr) {
-    const categories = new Set();
-
-    state.tasks.forEach((task) => {
-      if (task.date === dateStr) {
-        if (isCategoryVisible(task.category)) {
-          categories.add(task.category || "personal");
-        }
-      }
-    });
-
-    const dateObj = new Date(`${dateStr}T00:00:00`);
-    const dow = (dateObj.getDay() + 6) % 7;
-
-    state.recurringSeries.forEach((series) => {
-      const days = getSeriesDays(series);
-      if (!days.includes(dow)) {
-        return;
-      }
-      if (!isDateWithinSeriesRange(series, dateStr)) {
-        return;
-      }
-      const ex = getException(series.id, dateStr);
-      if (ex && ex.type === "deleted") {
-        return;
-      }
-      if (isCategoryVisible(series.category)) {
-        categories.add(series.category || "personal");
-      }
-    });
-
-    const hasPersonal = categories.has("personal");
-    const hasWork = categories.has("work");
-    if (hasPersonal && hasWork) {
-      return "both";
-    }
-    if (hasWork) {
-      return "work";
-    }
-    if (hasPersonal) {
-      return "personal";
-    }
-    return null;
-  }
-
-  function renderHeader() {
-    const mainDate = state.ui.mainDate;
-    const setText = (id, value) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.textContent = value;
-      }
-    };
-
-    setText("yearLabel", getYearLabel(state.activeDate));
-    setText("weekNumber", String(getISOWeekNumber(state.activeDate)));
-    const dayEntries = getVisibleEntriesForDate(formatDate(mainDate));
-    const weekEntries = collectVisibleEntriesForRange(getWeekStart(state.activeDate), getWeekEnd(state.activeDate));
-    setText("dayProgressLabel", `${calculateProgress(dayEntries.map((entry) => entry.item))}%`);
-    setText("weekProgressLabel", `${calculateProgress(weekEntries.map((entry) => entry.item))}%`);
-    const counterEntries = getHeaderCounters();
-    const doneCount = counterEntries.filter((entry) => getTaskEffectiveStatus(entry.item) === "done").length;
-    setText("totalCountLabel", String(counterEntries.length));
-    setText("doneCountLabel", String(doneCount));
-
-    const modeMap = {
-      day: "viewDayBtn",
-      week: "viewWeekBtn",
-      month: "viewMonthBtn",
-      year: "viewYearBtn"
-    };
-
-    Object.values(modeMap).forEach((id) => {
-      const btn = document.getElementById(id);
-      if (btn) {
-        btn.classList.remove("active");
-      }
-    });
-
-    const activeBtn = document.getElementById(modeMap[state.ui.viewMode]);
-    if (activeBtn) {
-      activeBtn.classList.add("active");
+    if (recurrence !== 'none' && repeatDays.length === 0) {
+      showFeedback('Выбери хотя бы один день повтора.');
+      return;
     }
 
-    const compactBtn = document.getElementById("compactHeaderBtn");
-    if (compactBtn) {
-      compactBtn.textContent = state.ui.compactHeader ? "обычно" : "компактно";
-      compactBtn.setAttribute("aria-pressed", state.ui.compactHeader ? "true" : "false");
+    if (recurrence !== 'none' && repeatUntil && repeatUntil < date) {
+      showFeedback('Дата "повторять до" не может быть раньше даты задачи.');
+      return;
     }
 
-    const themeBtn = document.getElementById("headerThemeBtn");
-    if (themeBtn) {
-      themeBtn.textContent = state.ui.headerTheme === "soft" ? "стиль: мягкий" : "стиль: строгий";
-      themeBtn.setAttribute("aria-pressed", state.ui.headerTheme === "soft" ? "true" : "false");
+    if (recurrence !== 'none' && repeatCount === 1 && !repeatUntil) {
+      showFeedback('Для повтора выбери количество больше 1 или дату "повторять до".');
+      return;
     }
-  }
 
-  function renderMainDayTitle() {
-    const target = document.getElementById("mainDayTitle");
-    const date = state.ui.mainDate;
-    target.textContent = `${DAY_NAMES[(date.getDay() + 6) % 7]}, ${formatDate(date)}`;
+    pushUndo(wasEditing ? 'редактирование задачи' : 'добавление задачи');
+    if (state.editingId) {
+      var editingTask = findTask(state.editingId);
+      if (!editingTask) return;
 
-    const backBtn = document.getElementById("backToTodayBtn");
-    if (isSameDate(state.ui.mainDate, getTodayDate())) {
-      backBtn.disabled = true;
-      backBtn.style.opacity = "0.6";
+      if (editingTask.seriesId && el.editScopeSelect.value === 'series') {
+        updateSeries(editingTask.seriesId, {
+          title: title,
+          date: date,
+          time: time,
+          duration: duration,
+          priority: priority,
+          category: category,
+          note: note,
+          recurrence: recurrence,
+          repeatCount: repeatCount,
+          repeatUntil: repeatUntil,
+          repeatDays: repeatDays
+        });
+      } else {
+        editingTask.title = title;
+        editingTask.date = date;
+        editingTask.time = time;
+        editingTask.duration = duration;
+        editingTask.priority = priority;
+        editingTask.category = category;
+        editingTask.note = note;
+      }
     } else {
-      backBtn.disabled = false;
-      backBtn.style.opacity = "1";
+      createTaskSeries({
+        title: title,
+        date: date,
+        time: time,
+        duration: duration,
+        priority: priority,
+        category: category,
+        note: note,
+        recurrence: recurrence,
+        repeatCount: repeatCount,
+        repeatUntil: repeatUntil,
+        repeatDays: repeatDays
+      });
+    }
+
+    saveData();
+    resetForm();
+    showFeedback(wasEditing ? 'Изменения сохранены.' : 'Задача добавлена.', 'success');
+    render();
+  }
+
+  function createTaskSeries(input) {
+    var baseDate = parseISODate(input.date);
+    var recurring = input.recurrence !== 'none' && (input.repeatCount > 1 || !!input.repeatUntil);
+    var seriesId = recurring ? (input.seriesId || createId('series')) : '';
+    var repeatDays = normalizeRepeatDays(input.repeatDays, baseDate);
+    var untilDate = input.repeatUntil ? parseISODate(input.repeatUntil) : null;
+    var doneByDate = input.doneByDate || {};
+    if (untilDate && untilDate < baseDate) {
+      untilDate = new Date(baseDate);
+    }
+    var targetCount = recurring ? Math.max(1, input.repeatCount) : 1;
+
+    var cursor = new Date(baseDate);
+    var added = 0;
+    var safety = 0;
+
+    while (safety < 2000) {
+      safety += 1;
+      if (!recurring && added >= 1) {
+        break;
+      }
+      if (recurring && untilDate && cursor > untilDate) {
+        break;
+      }
+      if (recurring && !untilDate && added >= targetCount) {
+        break;
+      }
+      var allowed = recurring ? dayInArray(cursor.getDay(), repeatDays) : toISODate(cursor) === toISODate(baseDate);
+
+      if (allowed && cursor >= baseDate) {
+        state.tasks.push({
+          id: createId('task'),
+          seriesId: seriesId,
+          recurrence: recurring ? input.recurrence : 'none',
+          repeatDays: recurring ? repeatDays.slice() : [],
+          repeatUntil: recurring && untilDate ? toISODate(untilDate) : '',
+          title: input.title,
+          note: input.note || '',
+          date: toISODate(cursor),
+          time: input.time,
+          duration: input.duration,
+          priority: input.priority,
+          category: input.category,
+          archived: false,
+          done: !!doneByDate[toISODate(cursor)],
+          createdAt: Date.now()
+        });
+        added += 1;
+      }
+
+      if (!recurring) {
+        break;
+      }
+      cursor = addDays(cursor, 1);
     }
   }
 
-  function getDayStatusCounts(entries) {
-    const counts = {
-      inProgress: 0,
-      done: 0,
-      overdue: 0
-    };
-
-    entries.forEach((entry) => {
-      const status = getTaskEffectiveStatus(entry.item);
-      if (status === "in-progress") {
-        counts.inProgress += 1;
-      } else if (status === "done") {
-        counts.done += 1;
-      } else if (status === "overdue") {
-        counts.overdue += 1;
+  function updateSeries(seriesId, payload) {
+    var previousSeries = getSeriesTasks(seriesId);
+    var doneByDate = {};
+    for (var i = 0; i < previousSeries.length; i += 1) {
+      if (previousSeries[i].done) {
+        doneByDate[previousSeries[i].date] = true;
       }
+    }
+
+    state.tasks = state.tasks.filter(function (t) {
+      return t.seriesId !== seriesId;
     });
 
-    return counts;
+    createTaskSeries({
+      seriesId: seriesId,
+      title: payload.title,
+      note: payload.note,
+      date: payload.date,
+      time: payload.time,
+      duration: payload.duration,
+      priority: payload.priority,
+      category: payload.category,
+      recurrence: payload.recurrence,
+      repeatCount: payload.repeatCount,
+      repeatUntil: payload.repeatUntil,
+      repeatDays: payload.repeatDays,
+      doneByDate: doneByDate
+    });
   }
 
-  function renderWeekStripBottom() {
-    const c = document.getElementById("weekStripBottom");
-    c.innerHTML = "";
-    const today = getTodayDate();
+  function onRecurrenceChange() {
+    var recurrence = el.recurrenceInput.value;
+    if (recurrence === 'none') {
+      el.repeatDaysBox.classList.add('hidden');
+      el.repeatUntilInput.disabled = true;
+      updateRepeatSummary();
+      clearFeedback();
+      return;
+    }
 
-    getWeekDays(state.activeDate).forEach((day, i) => {
-      const dstr = formatDate(day);
-      const dayEntries = getVisibleEntriesForDate(dstr);
-      const p = calculateProgress(dayEntries.map((entry) => entry.item));
-      const dayCounts = getDayStatusCounts(dayEntries);
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "day-btn";
-      b.dataset.date = dstr;
+    el.repeatDaysBox.classList.remove('hidden');
+    el.repeatUntilInput.disabled = false;
+    if (el.repeatCountInput.value === '1' && !el.repeatUntilInput.value) {
+      setRepeatCountValue(10);
+    }
+    syncRepeatUntilMin();
+    applyRecurrencePreset(recurrence);
+    applyEditScopeMode();
+    updateRepeatSummary();
+    showFeedback('Повтор включен. Выбери дни и укажи количество или дату окончания.', 'success');
+  }
 
-      if (isSameDate(day, state.ui.mainDate)) {
-        b.classList.add("active");
+  function applyRecurrencePreset(recurrence) {
+    var baseDate = parseISODate(el.dateInput.value || toISODate(new Date()));
+    var day = baseDate.getDay();
+
+    if (recurrence === 'daily') {
+      setSelectedRepeatDays([0, 1, 2, 3, 4, 5, 6]);
+      return;
+    }
+
+    if (recurrence === 'weekdays') {
+      setSelectedRepeatDays([1, 2, 3, 4, 5]);
+      return;
+    }
+
+    if (recurrence === 'weekly') {
+      setSelectedRepeatDays([day]);
+      return;
+    }
+
+    if (recurrence === 'custom') {
+      var current = getSelectedRepeatDays();
+      if (!current.length) {
+        setSelectedRepeatDays([day]);
       }
-      if (isSameDate(day, today)) {
-        b.classList.add("today");
+      return;
+    }
+  }
+
+  function applyEditScopeMode() {
+    if (!state.editingSeriesId) {
+      return;
+    }
+
+    var scope = el.editScopeSelect.value;
+    var isSeries = scope === 'series';
+    var noRepeat = el.recurrenceInput.value === 'none';
+
+    el.recurrenceInput.disabled = !isSeries;
+    el.repeatCountInput.disabled = !isSeries;
+    el.repeatUntilInput.disabled = !isSeries || noRepeat;
+
+    var disableDays = !isSeries || noRepeat;
+    setRepeatDaysDisabled(disableDays);
+    if (disableDays) {
+      el.repeatDaysBox.classList.add('hidden');
+    } else {
+      el.repeatDaysBox.classList.remove('hidden');
+    }
+  }
+
+  function render() {
+    renderPanels();
+    renderViewTabs();
+    renderFocus();
+    renderWeekPlan();
+    renderList();
+    renderStats();
+    renderWeek();
+    renderMonth();
+    renderTips();
+    renderUndo();
+  }
+
+  function renderViewTabs() {
+    for (var i = 0; i < el.viewTabs.length; i += 1) {
+      var active = el.viewTabs[i].getAttribute('data-view') === state.viewMode;
+      el.viewTabs[i].classList.toggle('is-active', active);
+      el.viewTabs[i].setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
+  function renderPanels() {
+    if (state.viewMode === 'week') {
+      el.weekPanel.classList.remove('hidden');
+      el.monthPanel.classList.add('hidden');
+      el.listPanel.classList.add('hidden');
+    } else if (state.viewMode === 'month') {
+      el.weekPanel.classList.add('hidden');
+      el.monthPanel.classList.remove('hidden');
+      el.listPanel.classList.add('hidden');
+    } else {
+      el.weekPanel.classList.add('hidden');
+      el.monthPanel.classList.add('hidden');
+      el.listPanel.classList.remove('hidden');
+    }
+  }
+
+  function initAccordions() {
+    var saved = loadAccordionState();
+    for (var i = 0; i < el.accordions.length; i += 1) {
+      var section = el.accordions[i];
+      var key = section.getAttribute('data-accordion') || String(i);
+      var toggle = section.querySelector('.accordion-toggle');
+      var open = Object.prototype.hasOwnProperty.call(saved, key)
+        ? !!saved[key]
+        : section.getAttribute('data-open') === 'true';
+      setAccordionOpen(section, open);
+      if (toggle) {
+        toggle.addEventListener('click', function () {
+          var currentSection = this.closest('.accordion');
+          var isOpen = currentSection.getAttribute('data-open') === 'true';
+          setAccordionOpen(currentSection, !isOpen);
+          saveAccordionState();
+        });
+      }
+    }
+  }
+
+  function setAccordionOpen(section, open) {
+    var body = section.querySelector('.accordion-body');
+    var toggle = section.querySelector('.accordion-toggle');
+    var arrow = section.querySelector('.accordion-arrow');
+    section.setAttribute('data-open', open ? 'true' : 'false');
+    if (body) {
+      body.classList.toggle('hidden', !open);
+    }
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    if (arrow) {
+      arrow.textContent = open ? '▾' : '▸';
+    }
+  }
+
+  function saveAccordionState() {
+    var stateMap = {};
+    for (var i = 0; i < el.accordions.length; i += 1) {
+      var key = el.accordions[i].getAttribute('data-accordion') || String(i);
+      stateMap[key] = el.accordions[i].getAttribute('data-open') === 'true';
+    }
+    localStorage.setItem(ACCORDION_KEY, JSON.stringify(stateMap));
+  }
+
+  function openAccordionByKey(key) {
+    for (var i = 0; i < el.accordions.length; i += 1) {
+      if (el.accordions[i].getAttribute('data-accordion') === key) {
+        setAccordionOpen(el.accordions[i], true);
+        saveAccordionState();
+        return;
+      }
+    }
+  }
+
+  function loadAccordionState() {
+    try {
+      var raw = localStorage.getItem(ACCORDION_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function renderList() {
+    var filtered = getFilteredTasks();
+    el.taskList.innerHTML = '';
+
+    for (var i = 0; i < filtered.length; i += 1) {
+      el.taskList.appendChild(renderTask(filtered[i]));
+    }
+
+    if (filtered.length) {
+      el.emptyState.style.display = 'none';
+      return;
+    }
+
+    el.emptyState.style.display = 'block';
+    if (!state.tasks.length) {
+      el.emptyHint.textContent = 'Пока нет задач';
+      el.emptyActions.style.display = 'flex';
+    } else if (state.statusFilter === 'archived') {
+      el.emptyHint.textContent = 'Архив пуст';
+      el.emptyActions.style.display = 'none';
+    } else if (state.viewMode === 'today') {
+      el.emptyHint.textContent = 'На сегодня и просроченных задач нет';
+      el.emptyActions.style.display = 'none';
+    } else {
+      el.emptyHint.textContent = 'По текущим фильтрам задач нет';
+      el.emptyActions.style.display = 'none';
+    }
+  }
+
+  function renderTask(task) {
+    var li = document.createElement('li');
+    li.className = 'task-item category-line-' + task.category +
+      (task.done ? ' done' : '') +
+      (isOverdue(task) ? ' overdue' : '');
+    if (!task.archived) {
+      attachDragSource(li, task.id);
+    }
+
+    var check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = !!task.done;
+    check.setAttribute('aria-label', task.done ? 'Отметить как активную' : 'Отметить как выполненную');
+    check.addEventListener('change', function () {
+      pushUndo(task.done ? 'возврат задачи' : 'выполнение задачи');
+      task.done = !task.done;
+      saveData();
+      render();
+    });
+
+    var body = document.createElement('div');
+    body.className = 'task-body';
+
+    var titleRow = document.createElement('div');
+    titleRow.className = 'task-title-row';
+
+    var timePill = document.createElement('span');
+    timePill.className = 'task-time';
+    timePill.textContent = task.time;
+
+    var title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = task.title;
+    titleRow.appendChild(timePill);
+    titleRow.appendChild(title);
+
+    var meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = '<span>' + formatDate(task.date) + '</span>' +
+      '<span>' + (Math.round(task.duration / 6) / 10) + ' ч</span>' +
+      '<span class="badge ' + escapeHtml(task.priority) + '">' + priorityLabel(task.priority) + '</span>' +
+      '<span class="badge category-badge category-' + escapeHtml(task.category) + '">' + categoryLabel(task.category) + '</span>' +
+      (isOverdue(task) ? '<span class="badge overdue-badge">просрочено</span>' : '') +
+      (task.archived ? '<span class="badge archived-badge">архив</span>' : '') +
+      (task.seriesId ? '<span class="badge">повтор: ' + repeatDaysLabel(task.repeatDays) + (task.repeatUntil ? ' до ' + formatDate(task.repeatUntil) : '') + '</span>' : '');
+
+    body.appendChild(titleRow);
+    body.appendChild(meta);
+    if (task.note) {
+      var note = document.createElement('p');
+      note.className = 'task-note';
+      note.textContent = task.note;
+      body.appendChild(note);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'row-actions';
+
+    var moreSelect = document.createElement('select');
+    moreSelect.className = 'more-actions';
+    moreSelect.setAttribute('aria-label', 'Дополнительные действия');
+    moreSelect.innerHTML = '<option value="">Еще</option><option value="tomorrow">+1 день</option><option value="today">Сегодня</option><option value="copy">Копия</option>';
+    moreSelect.addEventListener('change', function () {
+      if (this.value === 'tomorrow') moveTaskByDays(task.id, 1);
+      if (this.value === 'today') moveTaskToToday(task.id);
+      if (this.value === 'copy') duplicateTask(task.id);
+      this.value = '';
+    });
+
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'ghost';
+    editBtn.textContent = 'Изменить';
+    editBtn.addEventListener('click', function () {
+      startEdit(task.id);
+    });
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'danger';
+    delBtn.textContent = 'Удалить';
+    delBtn.addEventListener('click', function () {
+      removeTask(task.id);
+    });
+
+    if (task.archived) {
+      var restoreBtn = document.createElement('button');
+      restoreBtn.type = 'button';
+      restoreBtn.className = 'ghost';
+      restoreBtn.textContent = 'Восстановить';
+      restoreBtn.addEventListener('click', function () {
+        restoreTask(task.id);
+      });
+      actions.appendChild(restoreBtn);
+    } else {
+      actions.appendChild(editBtn);
+      actions.appendChild(moreSelect);
+      actions.appendChild(delBtn);
+    }
+
+    li.appendChild(check);
+    li.appendChild(body);
+    li.appendChild(actions);
+
+    return li;
+  }
+
+  function renderWeek() {
+    var start = startOfWeek(state.weekAnchor);
+    var end = addDays(start, 6);
+    el.weekLabel.textContent = formatDate(start) + ' - ' + formatDate(end);
+
+    el.weekGrid.innerHTML = '';
+    for (var i = 0; i < 7; i += 1) {
+      var dayDate = addDays(start, i);
+      var dayStr = toISODate(dayDate);
+      var dayTasks = getActiveTasks()
+        .filter(function (t) { return t.date === dayStr; })
+        .sort(function (a, b) { return (a.time + a.title).localeCompare(b.time + b.title, 'ru'); });
+
+      var doneCount = dayTasks.filter(function (t) { return t.done; }).length;
+      var hours = dayTasks.reduce(function (sum, t) { return sum + t.duration; }, 0) / 60;
+
+      var card = document.createElement('article');
+      card.className = 'week-day';
+      attachDateDropTarget(card, dayStr);
+
+      var head = document.createElement('h3');
+      head.textContent = weekdayLabel(dayDate) + ', ' + formatDate(dayStr);
+      card.appendChild(head);
+
+      var meta = document.createElement('p');
+      meta.textContent = dayTasks.length + ' задач, ' + doneCount + ' выполнено, ' + hours.toFixed(1) + ' ч';
+      card.appendChild(meta);
+
+      if (!dayTasks.length) {
+        var empty = document.createElement('span');
+        empty.className = 'week-chip';
+        empty.textContent = 'пусто';
+        card.appendChild(empty);
+      } else {
+        for (var j = 0; j < dayTasks.length && j < 6; j += 1) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'week-chip week-chip-btn category-line-' + dayTasks[j].category;
+          chip.textContent = dayTasks[j].time + ' - ' + dayTasks[j].title + (dayTasks[j].done ? ' (done)' : '');
+          chip.setAttribute('title', 'Открыть для редактирования');
+          attachDragSource(chip, dayTasks[j].id);
+          (function (id) {
+            chip.addEventListener('click', function () {
+              startEdit(id);
+            });
+          })(dayTasks[j].id);
+          card.appendChild(chip);
+        }
+        if (dayTasks.length > 6) {
+          var more = document.createElement('span');
+          more.className = 'week-chip';
+          more.textContent = 'и еще ' + (dayTasks.length - 6);
+          card.appendChild(more);
+        }
       }
 
-      const nameEl = document.createElement("span");
-      nameEl.className = "day-name";
-      nameEl.textContent = DAY_NAMES[i];
+      el.weekGrid.appendChild(card);
+    }
+  }
 
-      const dateEl = document.createElement("span");
-      dateEl.className = "day-date";
-      dateEl.textContent = `${String(day.getDate()).padStart(2, "0")}.${String(day.getMonth() + 1).padStart(2, "0")}`;
+  function renderMonth() {
+    var start = startOfMonth(state.monthAnchor);
+    var gridStart = startOfWeek(start);
+    var monthName = start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    el.monthLabel.textContent = monthName;
+    el.monthGrid.innerHTML = '';
 
-      const progressEl = document.createElement("span");
-      progressEl.className = "day-progress";
-      progressEl.textContent = `${p}%`;
+    for (var i = 0; i < 42; i += 1) {
+      var date = addDays(gridStart, i);
+      var dateStr = toISODate(date);
+      var tasks = getActiveTasks().filter(function (t) { return t.date === dateStr; });
+      var openCount = tasks.filter(function (t) { return !t.done; }).length;
 
-      const countersEl = document.createElement("div");
-      countersEl.className = "day-counters";
-      const counterItems = [
-        { cls: "in-progress", title: "в работе", short: "в", value: dayCounts.inProgress },
-        { cls: "done", title: "сделано", short: "с", value: dayCounts.done },
-        { cls: "overdue", title: "просрочено", short: "п", value: dayCounts.overdue }
+      var cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'month-day' +
+        (date.getMonth() !== start.getMonth() ? ' is-muted' : '') +
+        (dateStr === toISODate(new Date()) ? ' is-today' : '') +
+        (dateStr === state.selectedMonthDate ? ' is-selected' : '') +
+        (openCount ? ' has-tasks' : '');
+      cell.innerHTML = '<span>' + date.getDate() + '</span><strong>' + openCount + '</strong>';
+      cell.title = openCount ? openCount + ' активных задач' : 'Нет активных задач';
+      attachDateDropTarget(cell, dateStr);
+      (function (selectedDate) {
+        cell.addEventListener('click', function () {
+          state.selectedMonthDate = selectedDate;
+          renderMonth();
+        });
+      })(dateStr);
+      el.monthGrid.appendChild(cell);
+    }
+
+    renderMonthDayPanel();
+  }
+
+  function renderMonthDayPanel() {
+    var selectedDate = state.selectedMonthDate || toISODate(new Date());
+    var tasks = getActiveTasks()
+      .filter(function (t) { return t.date === selectedDate; })
+      .sort(function (a, b) { return (a.time + a.title).localeCompare(b.time + b.title, 'ru'); });
+
+    el.monthDayTitle.textContent = 'Задачи на ' + formatDate(selectedDate);
+    el.monthDayList.innerHTML = '';
+    el.monthDayPanel.classList.remove('hidden');
+
+    if (!tasks.length) {
+      var empty = document.createElement('li');
+      empty.className = 'muted';
+      empty.textContent = 'На этот день задач нет';
+      el.monthDayList.appendChild(empty);
+      return;
+    }
+
+    for (var i = 0; i < tasks.length; i += 1) {
+      var item = document.createElement('li');
+      item.className = 'month-day-task category-line-' + tasks[i].category + (tasks[i].done ? ' done' : '');
+      item.innerHTML = '<span>' + escapeHtml(tasks[i].time) + '</span><strong>' + escapeHtml(tasks[i].title) + '</strong>';
+      (function (id) {
+        item.addEventListener('click', function () {
+          startEdit(id);
+        });
+      })(tasks[i].id);
+      el.monthDayList.appendChild(item);
+    }
+  }
+
+  function selectDateForNewTask(date) {
+    if (!date) return;
+    el.dateInput.value = date;
+    syncRepeatUntilMin();
+    updateRepeatSummary();
+    openAccordionByKey('taskForm');
+    showFeedback('Дата для новой задачи выбрана: ' + formatDate(date) + '.', 'success');
+    el.titleInput.focus();
+  }
+
+  function renderFocus() {
+    var todayStr = toISODate(new Date());
+    var nowText = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    var todayTasks = getActiveTasks().filter(function (t) { return t.date === todayStr; });
+    var openToday = todayTasks.filter(function (t) { return !t.done; });
+    var overdue = getActiveTasks().filter(isOverdue);
+    var minutes = todayTasks.reduce(function (sum, t) { return sum + Number(t.duration || 0); }, 0);
+    var hours = minutes / 60;
+    var next = openToday
+      .slice()
+      .sort(function (a, b) { return (a.time + a.title).localeCompare(b.time + b.title, 'ru'); })[0];
+    var limit = Number(state.settings.dayLimit) || DEFAULT_SETTINGS.dayLimit;
+
+    el.focusDate.textContent = 'сейчас ' + nowText;
+    el.focusNextTask.textContent = next ? next.time + ' - ' + next.title : 'нет активных задач';
+    el.focusOverdue.textContent = String(overdue.length);
+    el.focusLoad.textContent = hours.toFixed(1) + ' ч / ' + limit + ' ч';
+    if (overdue.length) {
+      el.focusTip.textContent = 'сначала закрыть просроченное';
+    } else if (hours > limit) {
+      el.focusTip.textContent = 'день перегружен';
+    } else if (next) {
+      el.focusTip.textContent = 'начать с ближайшей';
+    } else {
+      el.focusTip.textContent = 'можно планировать спокойно';
+    }
+  }
+
+  function renderWeekPlan() {
+    var start = startOfWeek(new Date());
+    var end = addDays(start, 6);
+    var limit = Number(state.settings.dayLimit) || DEFAULT_SETTINGS.dayLimit;
+    var weekTasks = state.tasks.filter(function (t) {
+      return !t.archived && t.date >= toISODate(start) && t.date <= toISODate(end);
+    });
+    var noteText = weekTasks.map(function (t) { return t.note || ''; }).join(' ');
+    var themes = extractKeywords(noteText).slice(0, 4);
+    var overloaded = [];
+
+    el.weekPlanRange.textContent = formatDate(start) + ' - ' + formatDate(end);
+    el.weekPlanGrid.innerHTML = '';
+
+    for (var i = 0; i < 7; i += 1) {
+      var date = addDays(start, i);
+      var dateStr = toISODate(date);
+      var dayTasks = weekTasks.filter(function (t) { return t.date === dateStr; });
+      var done = dayTasks.filter(function (t) { return t.done; }).length;
+      var minutes = dayTasks.reduce(function (sum, t) { return sum + Number(t.duration || 0); }, 0);
+      var hours = minutes / 60;
+      var ratio = limit ? Math.min(100, Math.round(hours / limit * 100)) : 0;
+      var loadClass = hours > limit ? ' is-hot' : (hours > limit * 0.75 ? ' is-warm' : '');
+      if (hours > limit) {
+        overloaded.push(weekdayLabel(date) + ' ' + hours.toFixed(1) + ' ч');
+      }
+
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'week-plan-day' + loadClass;
+      item.innerHTML = '<span>' + weekdayLabel(date) + '</span>' +
+        '<strong>' + hours.toFixed(1) + ' ч</strong>' +
+        '<em>' + dayTasks.length + ' задач, ' + done + ' выполнено</em>' +
+        '<i style="width:' + ratio + '%"></i>';
+      (function (selectedDate) {
+        item.addEventListener('click', function () {
+          selectDateForNewTask(selectedDate);
+        });
+      })(dateStr);
+      el.weekPlanGrid.appendChild(item);
+    }
+
+    el.weekNoteThemes.textContent = themes.join(', ');
+    el.weekOverload.textContent = overloaded.length ? overloaded.join('; ') : 'нет';
+    el.weekAdvice.textContent = buildWeekPlanAdvice(weekTasks, overloaded, themes);
+  }
+
+  function buildWeekPlanAdvice(tasks, overloaded, themes) {
+    if (!tasks.length) return 'запланируй 3-5 ключевых задач на неделю';
+    if (overloaded.length) return 'разгрузи перегруженные дни или перенеси часть задач';
+    var open = tasks.filter(function (t) { return !t.done; }).length;
+    if (open > 8) return 'выбери 3 главных задачи и начни с них';
+    if (themes.length && themes[0] !== 'нет данных') return 'тема недели: ' + themes[0] + ', выдели под нее отдельный блок';
+    return 'неделя выглядит сбалансированной';
+  }
+
+  function attachDragSource(element, taskId) {
+    element.draggable = true;
+    element.addEventListener('dragstart', function (event) {
+      event.dataTransfer.setData('text/plain', taskId);
+      event.dataTransfer.effectAllowed = 'move';
+      element.classList.add('is-dragging');
+    });
+    element.addEventListener('dragend', function () {
+      element.classList.remove('is-dragging');
+    });
+  }
+
+  function attachDateDropTarget(element, date) {
+    element.addEventListener('dragover', function (event) {
+      event.preventDefault();
+      element.classList.add('is-drop-target');
+    });
+    element.addEventListener('dragleave', function () {
+      element.classList.remove('is-drop-target');
+    });
+    element.addEventListener('drop', function (event) {
+      event.preventDefault();
+      element.classList.remove('is-drop-target');
+      moveTaskToDate(event.dataTransfer.getData('text/plain'), date);
+    });
+  }
+
+  function renderStats() {
+    var active = getActiveTasks();
+    var total = active.length;
+    var done = active.filter(function (t) { return t.done; }).length;
+    var open = total - done;
+    var progress = total ? Math.round(done / total * 100) : 0;
+
+    el.statTotal.textContent = String(total);
+    el.statOpen.textContent = String(open);
+    el.statDone.textContent = String(done);
+    el.statProgress.textContent = String(progress) + '%';
+  }
+
+  function renderTips() {
+    var tips = buildTips();
+    el.aiTips.innerHTML = '';
+    for (var i = 0; i < tips.length; i += 1) {
+      var li = document.createElement('li');
+      li.textContent = tips[i];
+      el.aiTips.appendChild(li);
+    }
+  }
+
+  function buildTips() {
+    var tips = [];
+    var activeTasks = getActiveTasks();
+    var total = activeTasks.length;
+    if (!total) {
+      return [
+        'начни с 3 задач на неделю: одна рабочая, одна личная, одна на здоровье.',
+        'ставь длительность задач не больше 90 минут для стабильного фокуса.',
+        'в конце дня закрывай хотя бы 1 маленькую задачу для ритма.'
       ];
-      counterItems.forEach((counter) => {
-        const marker = document.createElement("span");
-        marker.className = `day-counter ${counter.cls}`;
-        marker.title = counter.title;
-        marker.textContent = `${counter.short}: ${counter.value}`;
-        countersEl.appendChild(marker);
-      });
+    }
 
-      b.appendChild(nameEl);
-      b.appendChild(dateEl);
-      b.appendChild(progressEl);
-      b.appendChild(countersEl);
-      b.addEventListener("click", () => {
-        state.ui.mainDate = getDateOnly(day);
-        state.activeDate = getDateOnly(day);
-        state.ui.viewMode = "day";
-        renderApp();
-      });
+    var todayStr = toISODate(new Date());
+    var overdue = activeTasks.filter(function (t) { return !t.done && t.date < todayStr; }).length;
+    if (overdue > 0) {
+      tips.push('есть просроченные задачи: ' + overdue + '. сначала закрой 1-2 самые старые.');
+    }
 
-      b.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (e.dataTransfer) {
-          e.dataTransfer.dropEffect = "move";
-        }
-        b.classList.add("drag-over");
-      });
-      b.addEventListener("dragleave", () => b.classList.remove("drag-over"));
-      b.addEventListener("drop", (e) => {
-        e.preventDefault();
-        b.classList.remove("drag-over");
-        if (!dragState.payload) {
-          const rawPayload = e.dataTransfer.getData("text/plain");
-          if (rawPayload) {
-            try {
-              dragState.payload = JSON.parse(rawPayload);
-            } catch (_) {
-              dragState.payload = null;
-            }
-          }
-        }
-        if (dragState.payload) {
-          moveDraggedTask(dstr, dragState.payload.time);
-        }
-      });
+    var byDay = {};
+    for (var i = 0; i < activeTasks.length; i += 1) {
+      byDay[activeTasks[i].date] = (byDay[activeTasks[i].date] || 0) + activeTasks[i].duration;
+    }
 
-      c.appendChild(b);
+    var maxDate = '';
+    var maxMinutes = 0;
+    for (var key in byDay) {
+      if (Object.prototype.hasOwnProperty.call(byDay, key) && byDay[key] > maxMinutes) {
+        maxMinutes = byDay[key];
+        maxDate = key;
+      }
+    }
+    if (maxMinutes > 8 * 60) {
+      tips.push('перегрузка ' + formatDate(maxDate) + ': ' + (maxMinutes / 60).toFixed(1) + ' ч. перенеси часть задач на соседние дни.');
+    }
+
+    var done = activeTasks.filter(function (t) { return t.done; }).length;
+    var progress = Math.round(done / total * 100);
+    if (progress < 40) {
+      tips.push('прогресс ' + progress + '%. попробуй правило: сначала 1 сложная + 2 короткие задачи в день.');
+    } else {
+      tips.push('хороший темп: ' + progress + '%. удерживай баланс и не перегружай один день.');
+    }
+
+    var cat = { work: 0, personal: 0, study: 0, health: 0 };
+    for (var j = 0; j < activeTasks.length; j += 1) {
+      cat[activeTasks[j].category] = (cat[activeTasks[j].category] || 0) + 1;
+    }
+    if (cat.health === 0) {
+      tips.push('добавь хотя бы 1 задачу категории "здоровье" на неделю для устойчивого графика.');
+    }
+
+    while (tips.length < 3) {
+      tips.push('группируй похожие задачи подряд: это уменьшает переключения контекста.');
+    }
+
+    return tips.slice(0, 4);
+  }
+
+  function startEdit(id) {
+    var task = findTask(id);
+    if (!task) return;
+
+    state.editingId = id;
+    state.editingSeriesId = task.seriesId || '';
+
+    el.titleInput.value = task.title;
+    el.dateInput.value = task.date;
+    el.timeInput.value = task.time;
+    el.durationInput.value = String(task.duration);
+    el.priorityInput.value = task.priority;
+    el.categoryInput.value = task.category;
+    el.noteInput.value = task.note || '';
+
+    if (task.seriesId) {
+      var seriesTasks = getSeriesTasks(task.seriesId);
+      var first = seriesTasks[0] || task;
+      el.recurrenceInput.value = first.recurrence || 'custom';
+      setRepeatCountValue(seriesTasks.length);
+      el.repeatUntilInput.value = first.repeatUntil || '';
+      setSelectedRepeatDays((first.repeatDays && first.repeatDays.length) ? first.repeatDays : [parseISODate(task.date).getDay()]);
+      el.editScopeRow.classList.remove('hidden');
+      el.editScopeSelect.value = 'single';
+      applyEditScopeMode();
+      updateRepeatSummary();
+    } else {
+      el.recurrenceInput.value = 'none';
+      setRepeatCountValue(1);
+      el.repeatUntilInput.value = '';
+      setSelectedRepeatDays([parseISODate(task.date).getDay()]);
+      el.editScopeRow.classList.add('hidden');
+      el.recurrenceInput.disabled = true;
+      el.repeatCountInput.disabled = true;
+      el.repeatUntilInput.disabled = true;
+      setRepeatDaysDisabled(true);
+      el.repeatDaysBox.classList.add('hidden');
+      updateRepeatSummary();
+    }
+
+    el.saveBtn.textContent = 'Сохранить';
+    el.cancelEditBtn.classList.remove('hidden');
+    el.titleInput.focus();
+  }
+
+  function resetForm() {
+    state.editingId = null;
+    state.editingSeriesId = '';
+
+    el.taskForm.reset();
+    el.dateInput.value = toISODate(new Date());
+    el.timeInput.value = '09:00';
+    el.durationInput.value = '60';
+    el.priorityInput.value = 'medium';
+    el.categoryInput.value = 'work';
+    el.noteInput.value = '';
+    el.recurrenceInput.value = 'none';
+    setRepeatCountValue(1);
+    el.repeatUntilInput.value = '';
+    setSelectedRepeatDays([new Date().getDay()]);
+
+    el.recurrenceInput.disabled = false;
+    el.repeatCountInput.disabled = false;
+    el.repeatUntilInput.disabled = true;
+    setRepeatDaysDisabled(false);
+    el.repeatDaysBox.classList.add('hidden');
+
+    el.editScopeRow.classList.add('hidden');
+    el.editScopeSelect.value = 'single';
+    syncRepeatUntilMin();
+    updateRepeatSummary();
+    clearFeedback();
+
+    el.saveBtn.textContent = 'Добавить';
+    el.cancelEditBtn.classList.add('hidden');
+  }
+
+  function removeTask(id) {
+    var task = findTask(id);
+    if (!task) return;
+
+    if (task.seriesId) {
+      state.pendingRemoveTaskId = id;
+      openConfirmModal(task);
+      return;
+    } else {
+      pushUndo('удаление задачи');
+      state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
+    }
+
+    if (state.editingId === id || (state.editingSeriesId && task.seriesId === state.editingSeriesId)) {
+      resetForm();
+    }
+
+    saveData();
+    render();
+  }
+
+  function openConfirmModal(task) {
+    state.pendingMoveTaskId = '';
+    state.pendingMoveDate = '';
+    el.confirmText.textContent = 'Задача "' + task.title + '" входит в серию. Удалить только этот повтор или всю серию?';
+    el.confirmTitle.textContent = 'Удаление повтора';
+    el.confirmSeriesBtn.textContent = 'Удалить всю серию';
+    el.confirmSeriesBtn.className = 'danger';
+    el.confirmSingleBtn.textContent = 'Только этот повтор';
+    el.confirmModal.classList.remove('hidden');
+  }
+
+  function openMoveConfirmModal(task, targetDate) {
+    state.pendingRemoveTaskId = '';
+    state.pendingMoveTaskId = task.id;
+    state.pendingMoveDate = targetDate;
+    el.confirmTitle.textContent = 'Перенос повтора';
+    el.confirmText.textContent = 'Задача "' + task.title + '" входит в серию. Перенести только этот повтор или всю серию?';
+    el.confirmSeriesBtn.textContent = 'Перенести всю серию';
+    el.confirmSeriesBtn.className = 'ghost';
+    el.confirmSingleBtn.textContent = 'Только этот повтор';
+    el.confirmModal.classList.remove('hidden');
+  }
+
+  function closeConfirmModal() {
+    state.pendingRemoveTaskId = '';
+    state.pendingMoveTaskId = '';
+    state.pendingMoveDate = '';
+    el.confirmModal.classList.add('hidden');
+  }
+
+  function confirmSeriesAction(mode) {
+    if (state.pendingMoveTaskId) {
+      confirmSeriesMove(mode);
+      return;
+    }
+    confirmSeriesRemove(mode);
+  }
+
+  function confirmSeriesRemove(mode) {
+    var id = state.pendingRemoveTaskId;
+    if (!id) {
+      closeConfirmModal();
+      return;
+    }
+    var task = findTask(id);
+    closeConfirmModal();
+    if (!task) return;
+
+    if (mode === 'series') {
+      pushUndo('удаление серии');
+      state.tasks = state.tasks.filter(function (t) { return t.seriesId !== task.seriesId; });
+    } else {
+      pushUndo('удаление повтора');
+      state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
+    }
+
+    if (state.editingId === id || (state.editingSeriesId && task.seriesId === state.editingSeriesId)) {
+      resetForm();
+    }
+    saveData();
+    render();
+  }
+
+  function confirmSeriesMove(mode) {
+    var id = state.pendingMoveTaskId;
+    var targetDate = state.pendingMoveDate;
+    var task = findTask(id);
+    closeConfirmModal();
+    if (!task || !targetDate) return;
+
+    if (mode === 'series') {
+      moveSeriesToDate(task, targetDate);
+    } else {
+      moveSingleTaskToDate(task.id, targetDate);
+    }
+  }
+
+  function moveTaskByDays(id, days) {
+    var task = findTask(id);
+    if (!task) return;
+    requestTaskMove(task, toISODate(addDays(parseISODate(task.date), days)));
+  }
+
+  function moveTaskToToday(id) {
+    var task = findTask(id);
+    if (!task) return;
+    requestTaskMove(task, toISODate(new Date()));
+  }
+
+  function moveTaskToDate(id, date) {
+    var task = findTask(id);
+    if (!task || !date) return;
+    requestTaskMove(task, date);
+  }
+
+  function requestTaskMove(task, targetDate) {
+    if (!targetDate || task.date === targetDate) return;
+    if (task.seriesId) {
+      openMoveConfirmModal(task, targetDate);
+      return;
+    }
+    moveSingleTaskToDate(task.id, targetDate);
+  }
+
+  function moveSingleTaskToDate(id, targetDate) {
+    var task = findTask(id);
+    if (!task || !targetDate || task.date === targetDate) return;
+    pushUndo('перенос задачи');
+    task.date = targetDate;
+    saveData();
+    render();
+  }
+
+  function moveSeriesToDate(task, targetDate) {
+    var deltaDays = Math.round((parseISODate(targetDate).getTime() - parseISODate(task.date).getTime()) / DAY_MS);
+    if (!task.seriesId || !deltaDays) return;
+    pushUndo('перенос серии');
+    for (var i = 0; i < state.tasks.length; i += 1) {
+      if (state.tasks[i].seriesId === task.seriesId) {
+        state.tasks[i].date = toISODate(addDays(parseISODate(state.tasks[i].date), deltaDays));
+      }
+    }
+    saveData();
+    render();
+  }
+
+  function duplicateTask(id) {
+    var task = findTask(id);
+    if (!task) return;
+    pushUndo('дублирование задачи');
+    state.tasks.push({
+      id: createId('task'),
+      seriesId: '',
+      recurrence: 'none',
+      repeatDays: [],
+      repeatUntil: '',
+      title: task.title + ' (копия)',
+      note: task.note || '',
+      date: task.date,
+      time: task.time,
+      duration: task.duration,
+      priority: task.priority,
+      category: task.category,
+      archived: false,
+      done: false,
+      createdAt: Date.now()
+    });
+    saveData();
+    render();
+  }
+
+  function restoreTask(id) {
+    var task = findTask(id);
+    if (!task) return;
+    pushUndo('восстановление из архива');
+    task.archived = false;
+    saveData();
+    render();
+  }
+
+  function clearCompleted() {
+    var done = state.tasks.filter(function (t) { return t.done && !t.archived; });
+    if (!done.length) {
+      showFeedback('Нет выполненных задач для архива.', 'success');
+      return;
+    }
+    pushUndo('архивирование выполненных');
+    for (var i = 0; i < state.tasks.length; i += 1) {
+      if (state.tasks[i].done) {
+        state.tasks[i].archived = true;
+      }
+    }
+    saveData();
+    render();
+  }
+
+  function clearAllTasks() {
+    if (!window.confirm('Удалить все задачи? Действие можно отменить кнопкой "Отменить".')) {
+      return;
+    }
+    pushUndo('очистка всех задач');
+    state.tasks = [];
+    resetForm();
+    saveData();
+    render();
+  }
+
+  function pushUndo(label) {
+    state.undoStack.push({
+      label: label,
+      tasks: JSON.stringify(state.tasks)
+    });
+    if (state.undoStack.length > 10) {
+      state.undoStack = state.undoStack.slice(state.undoStack.length - 10);
+    }
+    saveUndoStack();
+    renderUndo();
+  }
+
+  function undoLastAction() {
+    if (!state.undoStack.length) return;
+    var last = state.undoStack.pop();
+    try {
+      state.tasks = sanitizeTasks(JSON.parse(last.tasks));
+      saveData();
+      saveUndoStack();
+      resetForm();
+      render();
+      showFeedback('Отменено: ' + last.label + '.', 'success');
+    } catch (e) {
+      state.undoStack = [];
+      saveUndoStack();
+      renderUndo();
+      showFeedback('Не удалось отменить последнее действие.');
+    }
+  }
+
+  function renderUndo() {
+    if (!el.undoBtn) return;
+    var last = state.undoStack[state.undoStack.length - 1];
+    el.undoBtn.disabled = !last;
+    el.undoBtn.textContent = last ? 'Отменить: ' + last.label : 'Отменить';
+  }
+
+  function getFilteredTasks() {
+    var todayStr = toISODate(new Date());
+    return state.tasks
+      .filter(function (task) {
+        if (state.statusFilter === 'archived') {
+          if (!task.archived) return false;
+        } else {
+          if (task.archived) return false;
+          if (state.viewMode === 'today' && task.date !== todayStr && !isOverdue(task)) return false;
+          if (state.statusFilter === 'open' && task.done) return false;
+          if (state.statusFilter === 'done' && !task.done) return false;
+        }
+        if (state.categoryFilter !== 'all' && task.category !== state.categoryFilter) return false;
+        if (state.search && (task.title + ' ' + (task.note || '')).toLowerCase().indexOf(state.search) === -1) return false;
+        return true;
+      })
+      .sort(function (a, b) {
+        return (a.date + ' ' + a.time + ' ' + a.title).localeCompare(b.date + ' ' + b.time + ' ' + b.title, 'ru');
+      });
+  }
+
+  function getActiveTasks() {
+    return state.tasks.filter(function (task) {
+      return !task.archived;
     });
   }
 
-  function applyRecurringAction(task, type, scope) {
-    if (!task || !task.seriesId) {
-      return false;
-    }
+  function getSeriesTasks(seriesId) {
+    return state.tasks
+      .filter(function (t) { return t.seriesId === seriesId; })
+      .sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+  }
 
-    if (scope === "single") {
-      state.recurringExceptions = state.recurringExceptions.filter(
-        (e) => !(e.seriesId === task.seriesId && e.date === task.date)
-      );
-      state.recurringExceptions.push({ seriesId: task.seriesId, date: task.date, type });
-      return true;
-    }
-
-    if (scope === "series") {
-      if (type === "done") {
-        const series = getSeriesById(task.seriesId);
-        if (!series) {
-          return false;
-        }
-        state.recurringExceptions = state.recurringExceptions.filter(
-          (e) => !(e.seriesId === task.seriesId && e.date === task.date)
-        );
-        state.recurringExceptions.push({ seriesId: task.seriesId, date: task.date, type: "done" });
-        if (!series.startDate || task.date < series.startDate) {
-          series.startDate = task.date;
-        }
-        series.untilDate = task.date;
-        return true;
+  function setRepeatCountValue(count) {
+    var value = String(Math.max(1, Number(count) || 1));
+    var exists = false;
+    for (var i = 0; i < el.repeatCountInput.options.length; i += 1) {
+      if (el.repeatCountInput.options[i].value === value) {
+        exists = true;
+        break;
       }
-      state.recurringSeries = state.recurringSeries.filter((s) => s.id !== task.seriesId);
-      state.recurringExceptions = state.recurringExceptions.filter((e) => e.seriesId !== task.seriesId);
-      return true;
+    }
+    if (!exists) {
+      var opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = value + ' повторов';
+      el.repeatCountInput.appendChild(opt);
+    }
+    el.repeatCountInput.value = value;
+  }
+
+  function setSelectedRepeatDays(days) {
+    var map = {};
+    for (var i = 0; i < days.length; i += 1) {
+      map[String(days[i])] = true;
+    }
+    for (var j = 0; j < el.repeatDays.length; j += 1) {
+      var day = el.repeatDays[j].getAttribute('data-day');
+      setRepeatDayState(el.repeatDays[j], !!map[day]);
+    }
+  }
+
+  function getSelectedRepeatDays() {
+    var result = [];
+    for (var i = 0; i < el.repeatDays.length; i += 1) {
+      if (el.repeatDays[i].getAttribute('aria-pressed') === 'true') {
+        result.push(Number(el.repeatDays[i].getAttribute('data-day')));
+      }
+    }
+    return result;
+  }
+
+  function normalizeRepeatDays(days, baseDate) {
+    var list = Array.isArray(days) ? days.slice() : [];
+    if (!list.length) {
+      list = [baseDate.getDay()];
     }
 
+    var uniq = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var n = Number(list[i]);
+      if (n >= 0 && n <= 6 && !dayInArray(n, uniq)) {
+        uniq.push(n);
+      }
+    }
+    uniq.sort();
+    return uniq;
+  }
+
+  function setRepeatDaysDisabled(disabled) {
+    for (var i = 0; i < el.repeatDays.length; i += 1) {
+      el.repeatDays[i].disabled = disabled;
+    }
+  }
+
+  function setRepeatDayState(element, selected) {
+    element.classList.toggle('is-selected', !!selected);
+    element.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  }
+
+  function syncRepeatUntilMin() {
+    var min = el.dateInput.value || toISODate(new Date());
+    el.repeatUntilInput.min = min;
+    if (el.repeatUntilInput.value && el.repeatUntilInput.value < min) {
+      el.repeatUntilInput.value = min;
+    }
+  }
+
+  function updateRepeatSummary() {
+    if (!el.repeatSummary) return;
+
+    var recurrence = el.recurrenceInput.value;
+    if (recurrence === 'none') {
+      el.repeatSummary.classList.add('hidden');
+      el.repeatSummary.textContent = '';
+      return;
+    }
+
+    var date = el.dateInput.value || toISODate(new Date());
+    var repeatCount = Math.max(1, Number(el.repeatCountInput.value) || 1);
+    var repeatUntil = el.repeatUntilInput.value || '';
+    var days = getSelectedRepeatDays();
+    var plannedCount = estimateRepeatCount(date, repeatCount, repeatUntil, days);
+    var endText = repeatUntil ? ' до ' + formatDate(repeatUntil) : '';
+
+    el.repeatSummary.textContent = 'Будет создано: ' + plannedCount + ' задач, дни: ' + repeatDaysLabel(days) + endText + '.';
+    el.repeatSummary.classList.remove('hidden');
+  }
+
+  function estimateRepeatCount(date, repeatCount, repeatUntil, days) {
+    var baseDate = parseISODate(date);
+    var untilDate = repeatUntil ? parseISODate(repeatUntil) : null;
+    var cursor = new Date(baseDate);
+    var added = 0;
+    var safety = 0;
+
+    while (safety < 2000) {
+      safety += 1;
+      if (untilDate && cursor > untilDate) break;
+      if (!untilDate && added >= repeatCount) break;
+      if (dayInArray(cursor.getDay(), days)) {
+        added += 1;
+      }
+      cursor = addDays(cursor, 1);
+    }
+
+    return added;
+  }
+
+  function isOverdue(task) {
+    return !task.done && task.date < toISODate(new Date());
+  }
+
+  function showFeedback(message, type) {
+    if (!el.formFeedback) return;
+    el.formFeedback.textContent = message;
+    el.formFeedback.classList.remove('hidden', 'success');
+    if (type === 'success') {
+      el.formFeedback.classList.add('success');
+    }
+  }
+
+  function clearFeedback() {
+    if (!el.formFeedback) return;
+    el.formFeedback.textContent = '';
+    el.formFeedback.classList.add('hidden');
+    el.formFeedback.classList.remove('success');
+  }
+
+  function dayInArray(day, arr) {
+    for (var i = 0; i < arr.length; i += 1) {
+      if (Number(arr[i]) === Number(day)) return true;
+    }
     return false;
   }
 
-  function openRecurringActionModal(task, type) {
-    recurringActionState.task = task;
-    recurringActionState.type = type;
-    const modal = document.getElementById("recurringActionModal");
-    const text = document.getElementById("recurringActionText");
-    const hint = document.getElementById("recurringActionHint");
-    if (text) {
-      const actionLabel = type === "done" ? "выполнение" : "удаление";
-      text.textContent = `применить ${actionLabel}: только к этому экземпляру или ко всей серии?`;
+  function repeatDaysLabel(days) {
+    if (!days || !days.length) return 'нет';
+    var names = { 1: 'пн', 2: 'вт', 3: 'ср', 4: 'чт', 5: 'пт', 6: 'сб', 0: 'вс' };
+    var out = [];
+    for (var i = 0; i < days.length; i += 1) {
+      out.push(names[days[i]] || '?');
     }
-    if (hint) {
-      hint.hidden = type !== "done";
-    }
-    if (modal) {
-      modal.classList.add("open");
-      modal.setAttribute("aria-hidden", "false");
-    }
+    return out.join(', ');
   }
 
-  function closeRecurringActionModal() {
-    const modal = document.getElementById("recurringActionModal");
-    if (modal) {
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-    }
-    recurringActionState.task = null;
-    recurringActionState.type = null;
+  function exportData() {
+    var payload = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      tasks: state.tasks
+    };
+
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'planner-export-' + toISODate(new Date()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
-  function resolveRecurringAction(scope) {
-    const task = recurringActionState.task;
-    const type = recurringActionState.type;
-    if (!task || !type) {
-      closeRecurringActionModal();
-      return;
-    }
-
-    const ok = applyRecurringAction(task, type, scope);
-    closeRecurringActionModal();
-    if (!ok) {
-      showNotification("ошибка данных: не удалось применить действие");
-      return;
-    }
-
-    saveToStorage();
-    renderApp();
-    showNotification("статус задачи: изменения применены");
-  }
-
-  function makeTaskCard(task, kind, options) {
-    const config = options || {};
-    const effective = getTaskEffectiveStatus(task);
-    const card = document.createElement("div");
-    card.className = `task-card priority-${task.priority || "medium"} task-category-${task.category || "personal"}`;
-
-    if (effective === "done") {
-      card.classList.add("is-done");
-    }
-    if (effective === "overdue") {
-      card.classList.add("is-overdue");
-    }
-
-    if (!config.compact && effective !== "done") {
-      card.draggable = true;
-    }
-
-    if (!config.compact) {
-      card.tabIndex = 0;
-      card.setAttribute("aria-label", `задача ${task.title}`);
-
-      card.addEventListener("dragstart", (e) => {
-        if (effective === "done") {
-          showNotification("ошибка переноса: выполненную задачу нельзя перенести");
-          e.preventDefault();
-          return;
-        }
-        dragState.payload = {
-          kind,
-          id: kind === "task" ? task.id : task.seriesId,
-          date: task.date,
-          time: task.time,
-          durationHours: getTaskDuration(task)
-        };
-        e.dataTransfer.effectAllowed = "move";
-        const ghost = createDragGhost(task);
-        e.dataTransfer.setDragImage(ghost, 16, 16);
-        e.dataTransfer.setData("text/plain", JSON.stringify(dragState.payload));
-        card.classList.add("is-dragging");
-        highlightAvailableDropZones(dragState.payload);
-      });
-
-      card.addEventListener("dragend", () => {
-        card.classList.remove("is-dragging");
-        clearDropZoneHighlights();
-        clearDragGhost();
-      });
-
-      card.addEventListener("keydown", (event) => {
-        if (!event.altKey) {
-          return;
-        }
-        const keyMap = {
-          ArrowUp: { day: 0, hour: -1 },
-          ArrowDown: { day: 0, hour: 1 },
-          ArrowLeft: { day: -1, hour: 0 },
-          ArrowRight: { day: 1, hour: 0 }
-        };
-        const target = keyMap[event.key];
-        if (!target) {
-          return;
-        }
-        event.preventDefault();
-        moveTaskByKeyboard(task, kind, target.day, target.hour, effective);
-      });
-    }
-
-    const titleRow = document.createElement("div");
-    titleRow.className = "task-title-row";
-
-    const categoryIcon = document.createElement("span");
-    categoryIcon.className = `task-category-icon ${task.category === "work" ? "work" : "personal"}`;
-    categoryIcon.textContent = task.category === "work" ? "\uD83D\uDCBC" : "\uD83C\uDFE0";
-    titleRow.appendChild(categoryIcon);
-
-    const titleBtn = document.createElement("button");
-    titleBtn.type = "button";
-    titleBtn.className = "task-title-btn";
-    titleBtn.textContent = task.title;
-    titleBtn.addEventListener("click", () => {
-      if (kind === "task") {
-        openTaskModal("edit", task);
-      } else {
-        const series = getSeriesById(task.seriesId);
-        if (!series) {
-          showNotification("ошибка данных: серия не найдена");
-          return;
-        }
-        openTaskModal("edit-series", { ...series, instanceDate: task.date });
-      }
+  function exportWeeklyReport() {
+    var start = startOfWeek(new Date());
+    var end = addDays(start, 6);
+    var weekTasks = state.tasks
+      .filter(function (t) { return t.date >= toISODate(start) && t.date <= toISODate(end); })
+      .sort(function (a, b) { return (a.date + a.time + a.title).localeCompare(b.date + b.time + b.title, 'ru'); });
+    var done = weekTasks.filter(function (t) { return t.done; }).length;
+    var archived = weekTasks.filter(function (t) { return t.archived; }).length;
+    var overdue = weekTasks.filter(function (t) { return isOverdue(t); }).length;
+    var minutes = weekTasks.reduce(function (sum, t) { return sum + Number(t.duration || 0); }, 0);
+    var notes = weekTasks.filter(function (t) { return t.note; }).map(function (t) {
+      return t.date + ' ' + t.time + ' - ' + t.title + ': ' + t.note;
     });
-    titleRow.appendChild(titleBtn);
+    var keywords = extractKeywords(notes.join(' '));
+    var categorySummary = buildCategorySummary(weekTasks);
+    var recommendation = buildWeeklyRecommendation(weekTasks, minutes, overdue, keywords);
 
-    const meta = document.createElement("div");
-    meta.className = "task-meta";
-
-    if (effective !== "done") {
-      const st = document.createElement("span");
-      st.className = "status-badge";
-      st.textContent = effective === "planning" ? "планируется" : effective === "in-progress" ? "в работе" : "просрочено";
-      meta.appendChild(st);
+    var rows = '';
+    for (var i = 0; i < weekTasks.length; i += 1) {
+      rows += '<tr><td>' + formatDate(weekTasks[i].date) + '</td><td>' + escapeHtml(weekTasks[i].time) + '</td><td>' +
+        escapeHtml(weekTasks[i].title) + '</td><td>' + categoryLabel(weekTasks[i].category) + '</td><td>' +
+        (weekTasks[i].done ? 'выполнено' : 'активно') + '</td><td>' + escapeHtml(weekTasks[i].note || '') + '</td></tr>';
     }
 
-    const actions = document.createElement("div");
-    actions.className = "task-actions";
+    var notesHtml = notes.length
+      ? '<ul>' + notes.map(function (note) { return '<li>' + escapeHtml(note) + '</li>'; }).join('') + '</ul>'
+      : '<p>Заметок за неделю пока нет.</p>';
 
-    const doneCheck = document.createElement("input");
-    doneCheck.type = "checkbox";
-    doneCheck.className = "done-check";
-    doneCheck.checked = effective === "done";
-    doneCheck.addEventListener("change", () => {
-      if (kind === "series") {
-        const actionType = doneCheck.checked ? "done" : "deleted";
-        doneCheck.checked = !doneCheck.checked;
-        openRecurringActionModal(task, actionType);
-        return;
-      } else {
-        task.status = doneCheck.checked ? "done" : "planning";
-      }
-      saveToStorage();
-      renderApp();
-    });
-    actions.appendChild(doneCheck);
+    var html = '<!doctype html><html lang="ru"><head><meta charset="UTF-8"><title>Отчет недели - ' +
+      escapeHtml(state.settings.name || DEFAULT_SETTINGS.name) + '</title><style>' +
+      'body{font-family:Segoe UI,Tahoma,sans-serif;margin:28px;color:#24312b;background:#fffdf8}' +
+      'h1{margin:0 0 6px} .muted{color:#66746b}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}' +
+      '.card{border:1px solid #d9e2d3;border-radius:10px;padding:12px;background:#f8fbf3}' +
+      'table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #d9e2d3;padding:8px;text-align:left;vertical-align:top}' +
+      'th{background:#edf5ec}@media(max-width:760px){.cards{grid-template-columns:1fr}body{margin:14px}}' +
+      '</style></head><body><h1>Отчет недели</h1><p class="muted">' + formatDate(start) + ' - ' + formatDate(end) + '</p>' +
+      '<div class="cards"><div class="card"><strong>' + weekTasks.length + '</strong><br>задач</div>' +
+      '<div class="card"><strong>' + done + '</strong><br>выполнено</div>' +
+      '<div class="card"><strong>' + (minutes / 60).toFixed(1) + ' ч</strong><br>нагрузка</div>' +
+      '<div class="card"><strong>' + archived + '</strong><br>в архиве</div></div>' +
+      '<h2>Разбор недели</h2><p><strong>Темы заметок:</strong> ' + escapeHtml(keywords.join(', ')) + '</p>' +
+      '<p><strong>Категории:</strong> ' + escapeHtml(categorySummary) + '</p>' +
+      '<p><strong>Просрочено:</strong> ' + overdue + '</p>' +
+      '<p><strong>Рекомендация:</strong> ' + escapeHtml(recommendation) + '</p>' +
+      '<h2>Заметки</h2>' + notesHtml +
+      '<h2>Задачи недели</h2><table><thead><tr><th>Дата</th><th>Время</th><th>Задача</th><th>Категория</th><th>Статус</th><th>Заметка</th></tr></thead><tbody>' +
+      rows + '</tbody></table></body></html>';
 
-    if (!config.compact && effective === "planning" && kind === "task") {
-      const startBtn = document.createElement("button");
-      startBtn.textContent = "начать";
-      startBtn.addEventListener("click", () => {
-        task.status = "in-progress";
-        saveToStorage();
-        renderApp();
-      });
-      actions.appendChild(startBtn);
-    }
-
-    if (!config.compact) {
-      const doneBtn = document.createElement("button");
-      doneBtn.textContent = effective === "done" ? "вернуть" : "готово";
-      doneBtn.addEventListener("click", () => {
-        if (kind === "series") {
-          openRecurringActionModal(task, effective === "done" ? "deleted" : "done");
-          return;
-        } else {
-          task.status = effective === "done" ? "planning" : "done";
-        }
-        saveToStorage();
-        renderApp();
-      });
-      actions.appendChild(doneBtn);
-
-      if (kind === "series") {
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "изменить";
-        editBtn.addEventListener("click", () => {
-          const series = getSeriesById(task.seriesId);
-          if (!series) {
-            showNotification("ошибка данных: серия не найдена");
-            return;
-          }
-          openTaskModal("edit-series", { ...series, instanceDate: task.date });
-        });
-        actions.appendChild(editBtn);
-
-        const removeBtn = document.createElement("button");
-        removeBtn.textContent = "удалить";
-        removeBtn.addEventListener("click", () => {
-          openRecurringActionModal(task, "deleted");
-        });
-        actions.appendChild(removeBtn);
-      }
-
-      if (kind === "task") {
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "изменить";
-        editBtn.addEventListener("click", () => openTaskModal("edit", task));
-        actions.appendChild(editBtn);
-      }
-    }
-
-    card.appendChild(titleRow);
-    card.appendChild(meta);
-    card.appendChild(actions);
-    return card;
+    downloadText('weekly-report-' + toISODate(start) + '.html', html, 'text/html');
   }
 
-  function renderDayGrid(date, containerId) {
-    const c = document.getElementById(containerId);
-    c.innerHTML = "";
-    const dateStr = formatDate(date);
-    const isMainGrid = containerId === "mainDayGrid";
-    c.classList.toggle("main-day-grid", isMainGrid);
+  function extractKeywords(text) {
+    var stop = 'и в во на с со к ко по за от до для что как это или а но не да нет задачи задача неделю день'.split(' ');
+    var stopMap = {};
+    for (var s = 0; s < stop.length; s += 1) {
+      stopMap[stop[s]] = true;
+    }
+    var counts = {};
+    var words = String(text).toLowerCase().replace(/[^a-zа-яё0-9\s]/gi, ' ').split(/\s+/);
+    for (var i = 0; i < words.length; i += 1) {
+      if (words[i].length < 4 || stopMap[words[i]]) continue;
+      counts[words[i]] = (counts[words[i]] || 0) + 1;
+    }
+    var keys = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 5);
+    return keys.length ? keys : ['нет данных'];
+  }
 
-    for (let h = START_HOUR; h <= END_HOUR; h += 1) {
-      const time = `${String(h).padStart(2, "0")}:00`;
-      const slot = document.createElement("div");
-      slot.className = "hour-slot";
-      slot.dataset.time = time;
+  function buildCategorySummary(tasks) {
+    var byCategory = { work: 0, personal: 0, study: 0, health: 0 };
+    for (var i = 0; i < tasks.length; i += 1) {
+      byCategory[tasks[i].category] = (byCategory[tasks[i].category] || 0) + 1;
+    }
+    return 'работа: ' + byCategory.work +
+      ', личное: ' + byCategory.personal +
+      ', учеба: ' + byCategory.study +
+      ', здоровье: ' + byCategory.health;
+  }
 
-      if (isMainGrid) {
-        slot.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          if (e.dataTransfer) {
-            e.dataTransfer.dropEffect = "move";
-          }
-          slot.classList.add("drag-over");
-        });
-        slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
-        slot.addEventListener("drop", (e) => {
-          e.preventDefault();
-          slot.classList.remove("drag-over");
-          if (!dragState.payload) {
-            const rawPayload = e.dataTransfer.getData("text/plain");
-            if (rawPayload) {
-              try {
-                dragState.payload = JSON.parse(rawPayload);
-              } catch (_) {
-                dragState.payload = null;
-              }
+  function buildWeeklyRecommendation(tasks, minutes, overdue, keywords) {
+    if (!tasks.length) return 'На этой неделе задач нет. Можно заранее запланировать 3-5 ключевых дел.';
+    if (overdue > 0) return 'Начни следующую неделю с закрытия просроченных задач, чтобы они не тянули внимание.';
+    if (minutes > 40 * 60) return 'Нагрузка высокая. Стоит распределить часть задач по дням или сократить длительные блоки.';
+    if (keywords.length && keywords[0] !== 'нет данных') return 'В заметках часто повторяется тема "' + keywords[0] + '". Проверь, не требует ли она отдельного блока времени.';
+    return 'Темп выглядит устойчивым. На следующей неделе можно добавить больше конкретики в заметки для анализа.';
+  }
+
+  function downloadText(filename, text, type) {
+    var blob = new Blob([text], { type: type });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportBackupBeforeImport() {
+    if (!state.tasks.length) return;
+    var payload = {
+      version: 2,
+      reason: 'backup-before-import',
+      exportedAt: new Date().toISOString(),
+      tasks: state.tasks
+    };
+    downloadText('backup-before-import-' + toISODate(new Date()) + '.json', JSON.stringify(payload, null, 2), 'application/json');
+  }
+
+  function mergeTasks(current, incoming) {
+    var seen = {};
+    var result = current.slice();
+    for (var i = 0; i < result.length; i += 1) {
+      seen[result[i].id] = true;
+    }
+    for (var j = 0; j < incoming.length; j += 1) {
+      if (!seen[incoming[j].id]) {
+        result.push(incoming[j]);
+        seen[incoming[j].id] = true;
+      }
+    }
+    return result;
+  }
+
+  function applyQuickTemplate(type) {
+    var template = {
+      title: 'Новая задача',
+      category: 'work',
+      duration: '60',
+      priority: 'medium'
+    };
+
+    if (type === 'work') {
+      template.title = 'Подготовить рабочую задачу';
+      template.category = 'work';
+      template.duration = '90';
+      template.priority = 'high';
+    } else if (type === 'health') {
+      template.title = 'Тренировка / здоровье';
+      template.category = 'health';
+      template.duration = '60';
+      template.priority = 'medium';
+    } else if (type === 'study') {
+      template.title = 'Учебный блок';
+      template.category = 'study';
+      template.duration = '90';
+      template.priority = 'medium';
+    }
+
+    el.titleInput.value = template.title;
+    el.categoryInput.value = template.category;
+    el.durationInput.value = template.duration;
+    el.priorityInput.value = template.priority;
+    el.recurrenceInput.value = 'none';
+    onRecurrenceChange();
+    clearFeedback();
+    el.titleInput.focus();
+    el.titleInput.select();
+  }
+
+  function importData(event) {
+    var file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var parsed = JSON.parse(e.target.result);
+        var tasks = Array.isArray(parsed) ? parsed : parsed.tasks;
+        if (!Array.isArray(tasks)) {
+          throw new Error('invalid payload');
+        }
+        var cleanTasks = sanitizeTasks(tasks);
+        var shouldMerge = false;
+
+        if (state.tasks.length) {
+          var replace = window.confirm('Импортировать файл?\nOK - заменить текущие задачи\nОтмена - объединить с текущими');
+          if (replace) {
+            exportBackupBeforeImport();
+            pushUndo('импорт с заменой');
+            state.tasks = cleanTasks;
+          } else {
+            var merge = window.confirm('Объединить задачи из файла с текущими?');
+            if (!merge) {
+              showFeedback('Импорт отменен.', 'success');
+              return;
             }
+            shouldMerge = true;
           }
-          moveDraggedTask(dateStr, time);
-        });
-      }
-
-      const label = document.createElement("div");
-      label.className = "hour-label";
-      label.textContent = time;
-      slot.appendChild(label);
-
-      const content = document.createElement("div");
-      content.className = "hour-content";
-      slot.appendChild(content);
-
-      const rawEntry = getSlotEntry(dateStr, time);
-      const entry = getSlotEntry(dateStr, time, null, true);
-      if (!entry) {
-        if (rawEntry && state.ui.categoryFilter !== "all") {
-          const hidden = document.createElement("span");
-          hidden.className = "tomorrow-empty";
-          hidden.textContent = "скрыто фильтром";
-          content.appendChild(hidden);
         } else {
-          const add = document.createElement("button");
-          add.textContent = "+ задача";
-          add.addEventListener("click", () => openTaskModal("create", { time, date: dateStr }));
-          content.appendChild(add);
-        }
-      } else {
-        if (entry.isStart) {
-          const card = makeTaskCard(entry.item, entry.kind, containerId === "tomorrowMiniGrid" ? { compact: true } : null);
-          if (isMainGrid) {
-            const spanHours = getTaskDuration(entry.item);
-            if (spanHours > 1) {
-              card.classList.add("task-span-block");
-              card.style.setProperty("--task-span", String(spanHours));
-              slot.classList.add("slot-span-start");
-            }
-          }
-          content.appendChild(card);
-        } else {
-          slot.classList.add("slot-covered");
-          if (!isMainGrid) {
-            const occupied = document.createElement("span");
-            occupied.className = "slot-covered-marker";
-            occupied.textContent = "занято";
-            content.appendChild(occupied);
-          }
-        }
-      }
-
-      c.appendChild(slot);
-    }
-  }
-
-  function syncMainGridRowStep() {
-    const grid = document.getElementById("mainDayGrid");
-    if (!grid || !grid.classList.contains("main-day-grid")) {
-      return;
-    }
-    const firstSlot = grid.querySelector(".hour-slot");
-    if (!firstSlot) {
-      return;
-    }
-    const slotHeight = Math.round(firstSlot.getBoundingClientRect().height);
-    if (slotHeight > 0) {
-      grid.style.setProperty("--time-row-step", `${slotHeight}px`);
-    }
-  }
-
-  function renderWeekOverview() {
-    const c = document.getElementById("mainDayGrid");
-    c.innerHTML = "";
-    const wrapper = document.createElement("div");
-    wrapper.className = "week-overview";
-
-    getWeekDays(state.activeDate).forEach((day, i) => {
-      const dateStr = formatDate(day);
-      const entries = getVisibleEntriesForDate(dateStr);
-      const card = document.createElement("div");
-      card.className = "week-day-card";
-
-      const title = document.createElement("h4");
-      title.textContent = `${DAY_NAMES[i]} - ${String(day.getDate()).padStart(2, "0")}.${String(day.getMonth() + 1).padStart(2, "0")}`;
-
-      const meta = document.createElement("div");
-      meta.className = "week-day-meta";
-      meta.textContent = `задач: ${entries.length}, прогресс: ${calculateProgress(entries.map((entry) => entry.item))}%`;
-
-      const list = document.createElement("div");
-      list.className = "week-day-list";
-      entries.slice(0, 4).forEach((entry) => {
-        const row = document.createElement("div");
-        row.className = "week-day-item";
-        row.textContent = `${entry.time} ${entry.item.title}`;
-        list.appendChild(row);
-      });
-
-      if (!entries.length) {
-        const row = document.createElement("div");
-        row.className = "week-day-item";
-        row.textContent = "задач нет";
-        list.appendChild(row);
-      }
-
-      card.appendChild(title);
-      card.appendChild(meta);
-      card.appendChild(list);
-      card.addEventListener("click", () => {
-        state.ui.mainDate = getDateOnly(day);
-        state.ui.viewMode = "day";
-        renderApp();
-      });
-      wrapper.appendChild(card);
-    });
-
-    c.appendChild(wrapper);
-  }
-
-  function buildMonthGrid(baseDate, gridEl, options) {
-    const config = options || { allowOtherMonth: true, onSelect: null };
-    gridEl.innerHTML = "";
-
-    const month = baseDate.getMonth();
-    const start = getWeekStart(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1));
-    const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
-    const end = getWeekEnd(monthEnd);
-
-    const headWeek = document.createElement("div");
-    headWeek.className = "month-head-cell weeknum-head";
-    headWeek.textContent = "№п/п";
-    gridEl.appendChild(headWeek);
-
-    DAY_NAMES.forEach((dayName) => {
-      const head = document.createElement("div");
-      head.className = "month-head-cell";
-      head.textContent = dayName;
-      gridEl.appendChild(head);
-    });
-
-    for (let weekStart = new Date(start); weekStart <= end; weekStart.setDate(weekStart.getDate() + 7)) {
-      const weekNumberCell = document.createElement("div");
-      weekNumberCell.className = "month-weeknum";
-      weekNumberCell.textContent = String(getISOWeekNumber(weekStart));
-      gridEl.appendChild(weekNumberCell);
-
-      for (let offset = 0; offset < 7; offset += 1) {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + offset);
-        const ds = formatDate(d);
-
-        const dayBtn = document.createElement("button");
-        dayBtn.type = "button";
-        dayBtn.className = "month-day";
-        dayBtn.textContent = String(d.getDate());
-
-        if (d.getMonth() !== month) {
-          dayBtn.classList.add("other-month");
-          if (!config.allowOtherMonth) {
-            dayBtn.disabled = true;
-          }
-        }
-        if (isSameDate(d, getTodayDate())) {
-          dayBtn.classList.add("today");
-        }
-        if (isSameDate(d, state.ui.mainDate)) {
-          dayBtn.classList.add("active");
+          pushUndo('импорт');
+          state.tasks = cleanTasks;
         }
 
-        const indicatorType = getMonthCategoryIndicator(ds);
-        if (indicatorType) {
-          const dot = document.createElement("span");
-          dot.className = `dot ${indicatorType}`;
-          dayBtn.appendChild(dot);
+        if (shouldMerge) {
+          pushUndo('импорт с объединением');
+          state.tasks = mergeTasks(state.tasks, cleanTasks);
         }
 
-        dayBtn.addEventListener("click", () => {
-          if (config.onSelect) {
-            config.onSelect(d);
-          }
-        });
-
-        gridEl.appendChild(dayBtn);
-      }
-    }
-  }
-
-  function renderMonthOverview() {
-    const c = document.getElementById("mainDayGrid");
-    c.innerHTML = "";
-
-    const head = document.createElement("div");
-    head.className = "month-mode-head";
-
-    const prevBtn = document.createElement("button");
-    prevBtn.className = "month-nav-btn";
-    prevBtn.textContent = "←";
-    prevBtn.addEventListener("click", () => {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() - 1, 1);
-      renderApp();
-    });
-
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "month-nav-btn";
-    nextBtn.textContent = "→";
-    nextBtn.addEventListener("click", () => {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() + 1, 1);
-      renderApp();
-    });
-
-    const label = document.createElement("p");
-    label.className = "month-mode-label";
-    label.textContent = `${MONTH_NAMES[state.currentMonthView.getMonth()]} ${state.currentMonthView.getFullYear()}`;
-
-    head.appendChild(prevBtn);
-    head.appendChild(label);
-    head.appendChild(nextBtn);
-
-    const grid = document.createElement("div");
-    grid.className = "month-grid";
-
-    buildMonthGrid(state.currentMonthView, grid, {
-      allowOtherMonth: true,
-      onSelect: (d) => {
-        state.ui.mainDate = getDateOnly(d);
-        state.activeDate = getDateOnly(d);
-        state.ui.viewMode = "day";
-        renderApp();
-      }
-    });
-
-    c.appendChild(head);
-    c.appendChild(grid);
-  }
-
-  function renderYearOverview() {
-    const c = document.getElementById("mainDayGrid");
-    c.innerHTML = "";
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "year-overview";
-    const year = state.ui.mainDate.getFullYear();
-
-    for (let month = 0; month < 12; month += 1) {
-      const start = new Date(year, month, 1);
-      const end = new Date(year, month + 1, 0);
-      const startStr = formatDate(start);
-      const endStr = formatDate(end);
-
-      const monthTasks = filterTasksByCategory(state.tasks.filter((task) => task.date >= startStr && task.date <= endStr));
-
-      const card = document.createElement("div");
-      card.className = "year-month-card";
-      const title = document.createElement("h4");
-      title.textContent = MONTH_NAMES[month];
-      const meta = document.createElement("div");
-      meta.className = "year-month-meta";
-      meta.textContent = `задач: ${monthTasks.length}`;
-
-      card.appendChild(title);
-      card.appendChild(meta);
-      card.addEventListener("click", () => {
-        state.currentMonthView = new Date(year, month, 1);
-        state.ui.viewMode = "month";
-        renderApp();
-      });
-      wrapper.appendChild(card);
-    }
-
-    c.appendChild(wrapper);
-  }
-
-  function renderMainContent() {
-    if (state.ui.viewMode === "week") {
-      renderWeekOverview();
-      return;
-    }
-    if (state.ui.viewMode === "month") {
-      renderMonthOverview();
-      return;
-    }
-    if (state.ui.viewMode === "year") {
-      renderYearOverview();
-      return;
-    }
-    renderDayGrid(state.ui.mainDate, "mainDayGrid");
-  }
-
-  function renderTomorrowMiniPanel() {
-    const tomorrow = getTomorrowDate();
-    renderDayGrid(tomorrow, "tomorrowMiniGrid");
-    document.querySelectorAll("#tomorrowMiniGrid .task-card").forEach((card) => {
-      card.classList.add("compact-task");
-    });
-    document.querySelectorAll("#tomorrowMiniGrid .hour-slot").forEach((slot) => {
-      slot.classList.add("tomorrow-slot");
-      const label = slot.querySelector(".hour-label");
-      if (label) {
-        label.classList.add("tomorrow-time");
-      }
-    });
-  }
-
-  function moveTaskPayload(payload, targetDate, targetTime) {
-    const p = payload;
-    if (!p) {
-      return false;
-    }
-
-    const excludeRef = { kind: p.kind, id: p.id, date: p.date };
-    const durationHours = p.durationHours || 1;
-    if (!canPlaceTaskSpan(targetDate, targetTime, durationHours, excludeRef)) {
-      showNotification("ошибка переноса: слот занят");
-      return false;
-    }
-
-    if (p.kind === "task") {
-      const t = state.tasks.find((x) => x.id === p.id);
-      if (!t) {
-        return false;
-      }
-      if (t.status === "done") {
-        showNotification("ошибка переноса: выполненную задачу нельзя перенести");
-        return false;
-      }
-
-      const wasOverdue = getTaskEffectiveStatus(t) === "overdue";
-      t.date = targetDate;
-      t.time = targetTime;
-
-      if (wasOverdue) {
-        const targetDateTime = new Date(`${targetDate}T${targetTime}:00`);
-        if (targetDateTime.getTime() > Date.now()) {
-          t.status = "planning";
-        }
-      }
-    } else {
-      const series = state.recurringSeries.find((s) => s.id === p.id);
-      if (!series) {
-        return false;
-      }
-      series.time = targetTime;
-      const d = new Date(`${targetDate}T00:00:00`);
-      const movedDow = (d.getDay() + 6) % 7;
-      series.dayOfWeek = movedDow;
-      series.daysOfWeek = [movedDow];
-    }
-
-    saveToStorage();
-    renderApp();
-    return true;
-  }
-
-  function moveTaskByKeyboard(task, kind, deltaDays, deltaHours, effectiveStatus) {
-    if (effectiveStatus === "done") {
-      showNotification("ошибка переноса: выполненную задачу нельзя перенести");
-      return;
-    }
-
-    const startHour = parseHour(task.time) + deltaHours;
-    const durationHours = getTaskDuration(task);
-    if (!canTaskFitInDay(startHour, durationHours)) {
-      showNotification("ошибка переноса: длительность выходит за пределы дня");
-      return;
-    }
-
-    const dateObj = new Date(`${task.date}T00:00:00`);
-    dateObj.setDate(dateObj.getDate() + deltaDays);
-    const targetDate = formatDate(dateObj);
-    const targetTime = formatTimeByHour(startHour);
-    const payload = {
-      kind,
-      id: kind === "task" ? task.id : task.seriesId,
-      date: task.date,
-      time: task.time,
-      durationHours
-    };
-
-    moveTaskPayload(payload, targetDate, targetTime);
-  }
-
-  function moveDraggedTask(targetDate, targetTime) {
-    const p = dragState.payload;
-    dragState.payload = null;
-    clearDropZoneHighlights();
-    clearDragGhost();
-    moveTaskPayload(p, targetDate, targetTime);
-  }
-
-  function updateMonthModalHead() {
-    const monthDate = state.currentMonthView;
-    document.getElementById("monthModalYear").textContent = String(monthDate.getFullYear());
-    document.getElementById("monthModalLabel").textContent = MONTH_NAMES[monthDate.getMonth()];
-  }
-
-  function openMonthModal() {
-    const modal = document.getElementById("monthModal");
-    const grid = document.getElementById("monthGrid");
-
-    updateMonthModalHead();
-    buildMonthGrid(state.currentMonthView, grid, {
-      allowOtherMonth: true,
-      onSelect: (d) => {
-        state.ui.mainDate = getDateOnly(d);
-        state.activeDate = getDateOnly(d);
-        closeMonthModal();
-        state.ui.viewMode = "day";
-        renderApp();
-      }
-    });
-
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-  }
-
-  function closeMonthModal() {
-    const m = document.getElementById("monthModal");
-    m.classList.remove("open");
-    m.setAttribute("aria-hidden", "true");
-  }
-
-  function openTaskModal(mode, payload) {
-    payload = payload || {};
-    const m = document.getElementById("taskModal");
-    const del = document.getElementById("deleteTaskBtn");
-    const recurringInput = document.getElementById("taskRecurringInput");
-    const recurringUntilInput = document.getElementById("taskRecurringUntilInput");
-    const recurringDaysGroup = document.getElementById("taskRecurringDaysGroup");
-
-    state.ui.taskModalMode = mode;
-    state.ui.editingTaskId = mode === "edit" ? payload.id : null;
-    state.ui.editingSeriesId = mode === "edit-series" ? payload.id : null;
-
-    const titleInput = document.getElementById("taskTitleInput");
-    const dateInput = document.getElementById("taskDateInput");
-    const timeInput = document.getElementById("taskTimeInput");
-    const durationInput = document.getElementById("taskDurationInput");
-    const priorityInput = document.getElementById("taskPriorityInput");
-    const categoryInput = document.getElementById("taskCategoryInput");
-
-    if (mode === "edit-series") {
-      titleInput.value = payload.title || "";
-      dateInput.value = payload.instanceDate || payload.startDate || formatDate(state.ui.mainDate);
-      timeInput.value = payload.time || formatTimeByHour(START_HOUR);
-      durationInput.value = String(getTaskDuration(payload));
-      priorityInput.value = payload.priority || "medium";
-      categoryInput.value = payload.category || "personal";
-      recurringInput.checked = true;
-      recurringInput.disabled = true;
-      recurringUntilInput.disabled = false;
-      recurringUntilInput.min = dateInput.value;
-      recurringUntilInput.value = payload.untilDate || dateInput.value;
-      setRecurringDaysEnabled(true);
-      const seriesDays = getSeriesDays(payload);
-      setRecurringDaysSelection(seriesDays.length ? seriesDays : [getDowFromDateStr(dateInput.value)]);
-      del.style.display = "inline-block";
-    } else {
-      titleInput.value = mode === "edit" ? payload.title : "";
-      dateInput.value = mode === "edit" ? payload.date : (payload.date || formatDate(state.ui.mainDate));
-      timeInput.value = mode === "edit" ? payload.time : payload.time;
-      durationInput.value = String(mode === "edit" ? getTaskDuration(payload) : 1);
-      priorityInput.value = mode === "edit" ? (payload.priority || "medium") : "medium";
-      categoryInput.value = mode === "edit" ? (payload.category || "personal") : "personal";
-      recurringInput.checked = false;
-      recurringInput.disabled = mode === "edit";
-      recurringUntilInput.value = "";
-      recurringUntilInput.disabled = true;
-      const fallbackDate = dateInput.value || formatDate(state.ui.mainDate);
-      setRecurringDaysSelection([getDowFromDateStr(fallbackDate)]);
-      setRecurringDaysEnabled(false);
-      del.style.display = mode === "edit" ? "inline-block" : "none";
-    }
-
-    if (recurringInput.disabled && mode !== "edit-series") {
-      recurringInput.checked = false;
-    }
-    if (recurringDaysGroup) {
-      recurringDaysGroup.style.display = recurringInput.checked || mode === "edit-series" ? "grid" : "none";
-    }
-
-    m.classList.add("open");
-    m.setAttribute("aria-hidden", "false");
-  }
-
-  function closeTaskModal() {
-    const m = document.getElementById("taskModal");
-    m.classList.remove("open");
-    m.setAttribute("aria-hidden", "true");
-    state.ui.editingTaskId = null;
-    state.ui.editingSeriesId = null;
-    const recurringInput = document.getElementById("taskRecurringInput");
-    if (recurringInput) {
-      recurringInput.disabled = false;
-    }
-    setRecurringDaysEnabled(false);
-    const recurringDaysGroup = document.getElementById("taskRecurringDaysGroup");
-    if (recurringDaysGroup) {
-      recurringDaysGroup.style.display = "none";
-    }
-  }
-
-  function handleTaskSubmit(e) {
-    e.preventDefault();
-
-    const title = document.getElementById("taskTitleInput").value.trim();
-    const date = document.getElementById("taskDateInput").value;
-    const time = document.getElementById("taskTimeInput").value;
-    const durationHours = Number(document.getElementById("taskDurationInput").value || 1);
-    const priority = document.getElementById("taskPriorityInput").value;
-    const category = document.getElementById("taskCategoryInput").value;
-    const recurring = document.getElementById("taskRecurringInput").checked;
-    const recurringUntil = document.getElementById("taskRecurringUntilInput").value;
-    const recurringDays = getSelectedRecurringDays();
-
-    if (!title || title.length > 120) {
-      showNotification("ошибка валидации: некорректное название");
-      return;
-    }
-    if (!Number.isFinite(durationHours) || durationHours < 1) {
-      showNotification("ошибка валидации: некорректная длительность");
-      return;
-    }
-    if (!canTaskFitInDay(parseHour(time), durationHours)) {
-      showNotification("ошибка валидации: длительность выходит за пределы дня");
-      return;
-    }
-
-    if (state.ui.taskModalMode === "create") {
-      if (!canPlaceTaskSpan(date, time, durationHours)) {
-        showNotification("ошибка валидации: слот занят");
-        return;
-      }
-
-      if (recurring) {
-        if (!recurringUntil) {
-          showNotification("ошибка валидации: укажите дату окончания повторяемости");
-          return;
-        }
-        if (recurringUntil < date) {
-          showNotification("ошибка валидации: дата окончания раньше даты задачи");
-          return;
-        }
-        if (!recurringDays.length) {
-          showNotification("ошибка валидации: выберите дни повторяемости");
-          return;
-        }
-
-        state.recurringSeries.push({
-          id: createId("series"),
-          title,
-          startDate: date,
-          untilDate: recurringUntil,
-          dayOfWeek: recurringDays[0],
-          daysOfWeek: recurringDays,
-          time,
-          durationHours,
-          priority,
-          category
-        });
-      } else {
-        state.tasks.push({
-          id: createId("task"),
-          title,
-          date,
-          time,
-          durationHours,
-          priority,
-          category,
-          status: "planning"
-        });
-      }
-    } else if (state.ui.taskModalMode === "edit-series") {
-      const series = getSeriesById(state.ui.editingSeriesId);
-      if (!series) {
-        showNotification("ошибка данных: серия не найдена");
-        return;
-      }
-
-      if (!recurringUntil) {
-        showNotification("ошибка валидации: укажите дату окончания повторяемости");
-        return;
-      }
-      if (recurringUntil < date) {
-        showNotification("ошибка валидации: дата окончания раньше даты задачи");
-        return;
-      }
-      if (!recurringDays.length) {
-        showNotification("ошибка валидации: выберите дни повторяемости");
-        return;
-      }
-
-      if (!canPlaceTaskSpan(date, time, durationHours, { kind: "series", id: series.id, date })) {
-        showNotification("ошибка валидации: слот занят");
-        return;
-      }
-
-      series.title = title;
-      series.time = time;
-      series.durationHours = durationHours;
-      series.priority = priority;
-      series.category = category;
-      series.dayOfWeek = recurringDays[0];
-      series.daysOfWeek = recurringDays;
-      series.startDate = date;
-      series.untilDate = recurringUntil;
-    } else {
-      const task = state.tasks.find((t) => t.id === state.ui.editingTaskId);
-      if (!task) {
-        return;
-      }
-
-      if (!canPlaceTaskSpan(date, time, durationHours, { kind: "task", id: task.id })) {
-        showNotification("ошибка валидации: слот занят");
-        return;
-      }
-
-      task.title = title;
-      task.date = date;
-      task.time = time;
-      task.durationHours = durationHours;
-      task.priority = priority;
-      task.category = category;
-    }
-
-    saveToStorage();
-    closeTaskModal();
-    renderApp();
-    showNotification("статус задачи: задача сохранена");
-  }
-
-  function handleDeleteTask() {
-    if (state.ui.taskModalMode === "edit-series") {
-      const seriesId = state.ui.editingSeriesId;
-      if (!seriesId) {
-        return;
-      }
-      if (!window.confirm("удалить серию задач? это действие нельзя отменить.")) {
-        return;
-      }
-      state.recurringSeries = state.recurringSeries.filter((series) => series.id !== seriesId);
-      state.recurringExceptions = state.recurringExceptions.filter((exception) => exception.seriesId !== seriesId);
-      saveToStorage();
-      closeTaskModal();
-      renderApp();
-      showNotification("статус задачи: серия удалена");
-      return;
-    }
-
-    const id = state.ui.editingTaskId;
-    if (!id) {
-      return;
-    }
-
-    if (!window.confirm("удалить задачу? это действие нельзя отменить.")) {
-      return;
-    }
-
-    state.tasks = state.tasks.filter((t) => t.id !== id);
-    saveToStorage();
-    closeTaskModal();
-    renderApp();
-    showNotification("статус задачи: задача удалена");
-  }
-
-  function goToToday() {
-    const today = getTodayDate();
-    state.activeDate = new Date(today);
-    state.ui.mainDate = new Date(today);
-    state.currentMonthView = new Date(today.getFullYear(), today.getMonth(), 1);
-    state.ui.viewMode = "day";
-    renderApp();
-  }
-
-  function goToTomorrow() {
-    const tomorrow = getTomorrowDate();
-    state.activeDate = new Date(tomorrow);
-    state.ui.mainDate = new Date(tomorrow);
-    state.currentMonthView = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), 1);
-    state.ui.viewMode = "day";
-    renderApp();
-  }
-
-  function shiftCurrentPeriod(step) {
-    if (state.ui.viewMode === "week") {
-      const delta = step * 7;
-      const d = new Date(state.ui.mainDate);
-      d.setDate(d.getDate() + delta);
-      state.ui.mainDate = d;
-      state.activeDate = new Date(d);
-      return;
-    }
-
-    if (state.ui.viewMode === "month") {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() + step, 1);
-      const d = new Date(state.ui.mainDate);
-      d.setMonth(d.getMonth() + step);
-      state.ui.mainDate = d;
-      state.activeDate = new Date(d);
-      return;
-    }
-
-    if (state.ui.viewMode === "year") {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear() + step, state.currentMonthView.getMonth(), 1);
-      const d = new Date(state.ui.mainDate);
-      d.setFullYear(d.getFullYear() + step);
-      state.ui.mainDate = d;
-      state.activeDate = new Date(d);
-      return;
-    }
-
-    const d = new Date(state.ui.mainDate);
-    d.setDate(d.getDate() + step);
-    state.ui.mainDate = d;
-    state.activeDate = new Date(d);
-  }
-
-  function renderApp() {
-    const appShell = document.querySelector(".app-shell");
-    if (appShell) {
-      appShell.classList.toggle("header-compact", !!state.ui.compactHeader);
-      appShell.classList.toggle("header-theme-soft", state.ui.headerTheme === "soft");
-    }
-
-    const layout = document.querySelector(".planner-layout");
-    const hideTomorrowPanel = state.ui.viewMode !== "day" || !!state.ui.compactHeader;
-    if (layout) {
-      layout.classList.toggle("is-week-mode", state.ui.viewMode === "week");
-      layout.classList.toggle("is-no-aside", hideTomorrowPanel);
-    }
-    const tomorrowPanel = document.querySelector(".tomorrow-panel");
-    if (tomorrowPanel) {
-      tomorrowPanel.classList.toggle("is-hidden", hideTomorrowPanel);
-    }
-
-    renderHeader();
-    renderMainDayTitle();
-    renderMainContent();
-    if (!hideTomorrowPanel) {
-      renderTomorrowMiniPanel();
-    }
-    renderWeekStripBottom();
-
-    requestAnimationFrame(syncMainGridRowStep);
-  }
-
-  function bindViewModeButtons() {
-    document.getElementById("viewDayBtn").addEventListener("click", () => {
-      state.ui.viewMode = "day";
-      renderApp();
-    });
-    document.getElementById("viewWeekBtn").addEventListener("click", () => {
-      state.ui.viewMode = "week";
-      renderApp();
-    });
-    document.getElementById("viewMonthBtn").addEventListener("click", () => {
-      state.ui.viewMode = "month";
-      state.currentMonthView = new Date(state.ui.mainDate.getFullYear(), state.ui.mainDate.getMonth(), 1);
-      renderApp();
-    });
-    document.getElementById("viewYearBtn").addEventListener("click", () => {
-      state.ui.viewMode = "year";
-      renderApp();
-    });
-  }
-
-  function bind() {
-    const addClick = (id, handler) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener("click", handler);
+        saveData();
+        render();
+        showFeedback('Импорт выполнен успешно.', 'success');
+      } catch (err) {
+        showFeedback('Ошибка импорта: файл не похож на JSON планировщика.');
+      } finally {
+        el.importInput.value = '';
       }
     };
-    const addChange = (id, handler) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener("change", handler);
-      }
-    };
+    reader.readAsText(file);
+  }
 
-    addClick("prevWeekBtn", () => {
-      const d = new Date(state.activeDate);
-      d.setDate(d.getDate() - 7);
-      state.activeDate = d;
-
-      const md = new Date(state.ui.mainDate);
-      md.setDate(md.getDate() - 7);
-      state.ui.mainDate = md;
-      renderApp();
-    });
-
-    addClick("nextWeekBtn", () => {
-      const d = new Date(state.activeDate);
-      d.setDate(d.getDate() + 7);
-      state.activeDate = d;
-
-      const md = new Date(state.ui.mainDate);
-      md.setDate(md.getDate() + 7);
-      state.ui.mainDate = md;
-      renderApp();
-    });
-
-    addClick("todayBtn", goToToday);
-    addClick("tomorrowBtn", goToTomorrow);
-    addClick("backToTodayBtn", goToToday);
-    addClick("prevPeriodBtn", () => {
-      shiftCurrentPeriod(-1);
-      renderApp();
-    });
-    addClick("nextPeriodBtn", () => {
-      shiftCurrentPeriod(1);
-      renderApp();
-    });
-
-    addClick("monthCalendarBtn", openMonthModal);
-    addClick("monthPrevBtn", () => {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() - 1, 1);
-      openMonthModal();
-    });
-    addClick("monthNextBtn", () => {
-      state.currentMonthView = new Date(state.currentMonthView.getFullYear(), state.currentMonthView.getMonth() + 1, 1);
-      openMonthModal();
-    });
-
-    bindViewModeButtons();
-    addChange("categoryFilterSelect", (event) => {
-      state.ui.categoryFilter = event.target.value;
-      saveToStorage();
-      renderApp();
-    });
-    addClick("compactHeaderBtn", () => {
-      state.ui.compactHeader = !state.ui.compactHeader;
-      saveToStorage();
-      renderApp();
-    });
-    addClick("headerThemeBtn", () => {
-      state.ui.headerTheme = state.ui.headerTheme === "soft" ? "strict" : "soft";
-      saveToStorage();
-      renderApp();
-    });
-    const taskForm = document.getElementById("taskForm");
-    if (taskForm) {
-      taskForm.addEventListener("submit", handleTaskSubmit);
-    }
-
-    addChange("taskRecurringInput", (event) => {
-      const recurringUntilInput = document.getElementById("taskRecurringUntilInput");
-      const taskDateInput = document.getElementById("taskDateInput");
-      const recurringDaysGroup = document.getElementById("taskRecurringDaysGroup");
-      if (event.target.disabled) {
-        return;
-      }
-      recurringUntilInput.disabled = !event.target.checked;
-      setRecurringDaysEnabled(event.target.checked);
-      if (recurringDaysGroup) {
-        recurringDaysGroup.style.display = event.target.checked ? "grid" : "none";
-      }
-      if (event.target.checked) {
-        recurringUntilInput.min = taskDateInput.value || formatDate(state.ui.mainDate);
-        if (!recurringUntilInput.value) {
-          recurringUntilInput.value = recurringUntilInput.min;
-        }
-        if (!getSelectedRecurringDays().length) {
-          const baseDate = taskDateInput.value || formatDate(state.ui.mainDate);
-          setRecurringDaysSelection([getDowFromDateStr(baseDate)]);
-        }
-      } else {
-        recurringUntilInput.value = "";
-      }
-    });
-
-    addChange("taskDateInput", (event) => {
-      const recurringUntilInput = document.getElementById("taskRecurringUntilInput");
-      const recurringInput = document.getElementById("taskRecurringInput");
-      if (!recurringInput.checked) {
-        return;
-      }
-      recurringUntilInput.min = event.target.value;
-      if (recurringUntilInput.value && recurringUntilInput.value < event.target.value) {
-        recurringUntilInput.value = event.target.value;
-      }
-      if (!getSelectedRecurringDays().length) {
-        setRecurringDaysSelection([getDowFromDateStr(event.target.value)]);
-      }
-    });
-
-    addClick("deleteTaskBtn", handleDeleteTask);
-    addClick("cancelTaskBtn", closeTaskModal);
-    const taskBackdrop = document.querySelector("[data-close-modal='task']");
-    if (taskBackdrop) {
-      taskBackdrop.addEventListener("click", closeTaskModal);
-    }
-    const monthBackdrop = document.querySelector("[data-close-modal='month']");
-    if (monthBackdrop) {
-      monthBackdrop.addEventListener("click", closeMonthModal);
-    }
-    const recurringBackdrop = document.querySelector("[data-close-modal='recurring-action']");
-    if (recurringBackdrop) {
-      recurringBackdrop.addEventListener("click", closeRecurringActionModal);
-    }
-    addClick("recurringOnlyBtn", () => resolveRecurringAction("single"));
-    addClick("recurringSeriesBtn", () => resolveRecurringAction("series"));
-    addClick("recurringCancelBtn", closeRecurringActionModal);
-
-    const timeInput = document.getElementById("taskTimeInput");
-    const durationInput = document.getElementById("taskDurationInput");
-    for (let h = START_HOUR; h <= END_HOUR; h += 1) {
-      const t = `${String(h).padStart(2, "0")}:00`;
-      const o = document.createElement("option");
-      o.value = t;
-      o.textContent = t;
-      timeInput.appendChild(o);
-    }
-
-    for (let hours = 1; hours <= END_HOUR - START_HOUR + 1; hours += 1) {
-      const option = document.createElement("option");
-      option.value = String(hours);
-      option.textContent = `${hours} ч`;
-      durationInput.appendChild(option);
-    }
-
-    const syncDurationLimitByTime = () => {
-      const startHour = parseHour(timeInput.value || formatTimeByHour(START_HOUR));
-      const maxDuration = END_HOUR - startHour + 1;
-      const currentValue = Number(durationInput.value || 1);
-      Array.from(durationInput.options).forEach((opt) => {
-        const value = Number(opt.value);
-        opt.disabled = value > maxDuration;
+  function sanitizeTasks(tasks) {
+    var clean = [];
+    for (var i = 0; i < tasks.length; i += 1) {
+      var t = tasks[i] || {};
+      if (!t.title || !t.date || !t.time) continue;
+      clean.push({
+        id: String(t.id || createId('task')),
+        seriesId: t.seriesId ? String(t.seriesId) : '',
+        recurrence: t.recurrence || 'none',
+        repeatDays: normalizeRepeatDays(t.repeatDays, parseISODate(String(t.date))),
+        repeatUntil: (t.repeatUntil && typeof t.repeatUntil === 'string') ? t.repeatUntil : '',
+        title: String(t.title).slice(0, 120),
+        note: t.note ? String(t.note).slice(0, 500) : '',
+        date: String(t.date),
+        time: String(t.time),
+        duration: Number(t.duration) > 0 ? Number(t.duration) : 60,
+        priority: normalizePriority(t.priority),
+        category: normalizeCategory(t.category),
+        archived: !!t.archived,
+        done: !!t.done,
+        createdAt: Number(t.createdAt) || Date.now()
       });
-      if (currentValue > maxDuration) {
-        durationInput.value = String(maxDuration);
-      }
+    }
+    return clean;
+  }
+
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tasks));
+  }
+
+  function autoSaveSettings() {
+    saveSettingsFromUi(true);
+  }
+
+  function saveSettingsFromUi(silent) {
+    state.settings = {
+      name: (el.plannerNameInput.value || DEFAULT_SETTINGS.name).trim().slice(0, 40),
+      workStart: el.workStartInput.value || DEFAULT_SETTINGS.workStart,
+      workEnd: el.workEndInput.value || DEFAULT_SETTINGS.workEnd,
+      dayLimit: Math.min(16, Math.max(1, Number(el.dayLimitInput.value) || DEFAULT_SETTINGS.dayLimit)),
+      theme: el.themeSelect.value === 'clear' ? 'clear' : 'warm'
     };
+    saveSettings();
+    applySettingsToUi();
+    renderFocus();
+    if (!silent) {
+      showFeedback('Настройки сохранены.', 'success');
+    }
+  }
 
-    timeInput.addEventListener("change", syncDurationLimitByTime);
-    syncDurationLimitByTime();
+  function applySettingsToUi() {
+    var s = state.settings || DEFAULT_SETTINGS;
+    el.appTitle.textContent = s.name || DEFAULT_SETTINGS.name;
+    document.title = s.name || DEFAULT_SETTINGS.name;
+    document.body.setAttribute('data-theme', s.theme || 'warm');
+    el.plannerNameInput.value = s.name || DEFAULT_SETTINGS.name;
+    el.workStartInput.value = s.workStart || DEFAULT_SETTINGS.workStart;
+    el.workEndInput.value = s.workEnd || DEFAULT_SETTINGS.workEnd;
+    el.dayLimitInput.value = String(s.dayLimit || DEFAULT_SETTINGS.dayLimit);
+    el.themeSelect.value = s.theme || DEFAULT_SETTINGS.theme;
+  }
 
-    window.addEventListener("resize", () => {
-      if (state.ui.viewMode === "day") {
-        requestAnimationFrame(syncMainGridRowStep);
+  function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  }
+
+  function saveUndoStack() {
+    localStorage.setItem(UNDO_KEY, JSON.stringify(state.undoStack));
+  }
+
+  function loadUndoStack() {
+    try {
+      var raw = localStorage.getItem(UNDO_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(function (item) { return item && typeof item.tasks === 'string'; })
+        .slice(-10);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      var parsed = raw ? JSON.parse(raw) : {};
+      var savedName = parsed.name ? String(parsed.name).slice(0, 40) : DEFAULT_SETTINGS.name;
+      if (savedName === 'Ладный День') {
+        savedName = DEFAULT_SETTINGS.name;
       }
-    });
+      return {
+        name: savedName,
+        workStart: parsed.workStart || DEFAULT_SETTINGS.workStart,
+        workEnd: parsed.workEnd || DEFAULT_SETTINGS.workEnd,
+        dayLimit: Number(parsed.dayLimit) > 0 ? Number(parsed.dayLimit) : DEFAULT_SETTINGS.dayLimit,
+        theme: parsed.theme === 'clear' ? 'clear' : DEFAULT_SETTINGS.theme
+      };
+    } catch (e) {
+      return DEFAULT_SETTINGS;
+    }
   }
 
-  function init() {
-    const loaded = loadFromStorage();
-    const uiPrefs = normalizeUiPrefs(loaded.uiPrefs);
-
-    state.tasks = (loaded.tasks || []).map((task) => ({
-      ...task,
-      id: task.id || createId("task"),
-      status: task.status || "planning",
-      priority: task.priority || "medium",
-      category: task.category || "personal",
-      durationHours: getTaskDuration(task)
-    }));
-
-    state.recurringSeries = (loaded.recurringSeries || []).map((series) => ({
-      ...series,
-      id: series.id || createId("series"),
-      startDate: series.startDate || null,
-      untilDate: series.untilDate || null,
-      dayOfWeek: normalizeSeriesDays(series)[0] ?? 0,
-      daysOfWeek: normalizeSeriesDays(series),
-      priority: series.priority || "medium",
-      category: series.category || "personal",
-      durationHours: getTaskDuration(series)
-    }));
-
-    state.recurringExceptions = (loaded.recurringExceptions || []).filter((exception) => (
-      exception
-      && typeof exception.seriesId === "string"
-      && typeof exception.date === "string"
-      && (exception.type === "done" || exception.type === "deleted")
-    ));
-    state.ui.categoryFilter = uiPrefs.categoryFilter;
-    state.ui.compactHeader = uiPrefs.compactHeader;
-    state.ui.headerTheme = uiPrefs.headerTheme;
-
-    saveToStorage();
-    bind();
-    document.getElementById("categoryFilterSelect").value = state.ui.categoryFilter;
-    renderApp();
-
-    console.log("самопроверка прогресса: пустой массив", calculateProgress([]));
-    console.log("самопроверка dnd: dragover использует preventDefault");
-    console.log("самопроверка series: виртуальные экземпляры не пишутся в tasks", state.tasks.length);
+  function loadData() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return sanitizeTasks(Array.isArray(parsed) ? parsed : []);
+    } catch (e) {
+      return [];
+    }
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  function findTask(id) {
+    for (var i = 0; i < state.tasks.length; i += 1) {
+      if (state.tasks[i].id === id) return state.tasks[i];
+    }
+    return null;
+  }
+
+  function createId(prefix) {
+    if (typeof crypto !== 'undefined' && crypto && typeof crypto.randomUUID === 'function') {
+      return prefix + '-' + crypto.randomUUID();
+    }
+    return prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 10);
+  }
+
+  function startOfWeek(date) {
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var day = d.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    return addDays(d, diff);
+  }
+
+  function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  function addMonths(date, amount) {
+    return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+  }
+
+  function addDays(date, amount) {
+    return new Date(date.getTime() + amount * DAY_MS);
+  }
+
+  function parseISODate(text) {
+    return new Date(text + 'T00:00:00');
+  }
+
+  function toISODate(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1);
+    var d = String(date.getDate());
+    if (m.length < 2) m = '0' + m;
+    if (d.length < 2) d = '0' + d;
+    return y + '-' + m + '-' + d;
+  }
+
+  function formatDate(dateLike) {
+    var text = typeof dateLike === 'string' ? dateLike : toISODate(dateLike);
+    var date = parseISODate(text);
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function weekdayLabel(date) {
+    return date.toLocaleDateString('ru-RU', { weekday: 'short' });
+  }
+
+  function priorityLabel(value) {
+    if (value === 'high') return 'высокий';
+    if (value === 'medium') return 'средний';
+    return 'низкий';
+  }
+
+  function categoryLabel(value) {
+    if (value === 'work') return 'работа';
+    if (value === 'personal') return 'личное';
+    if (value === 'study') return 'учеба';
+    if (value === 'health') return 'здоровье';
+    return value;
+  }
+
+  function normalizePriority(value) {
+    if (value === 'low' || value === 'medium' || value === 'high') return value;
+    return 'medium';
+  }
+
+  function normalizeCategory(value) {
+    if (value === 'work' || value === 'personal' || value === 'study' || value === 'health') return value;
+    return 'work';
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 })();
-
-

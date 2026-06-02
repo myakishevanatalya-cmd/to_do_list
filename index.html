@@ -1,173 +1,358 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>РИТМ - планировщик</title>
+  <title>To Do List</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <div id="notification" class="notification" role="status" aria-live="polite"></div>
-
-    <header class="app-header">
-      <div class="header-topline">
-        <div class="brand-block">
-          <img src="rhythm-mark.svg" alt="ритм логотип" class="brand-image">
-          <div class="brand-copy">
-            <h1 class="brand-title">РИТМ</h1>
-            <p class="brand-subtitle">планировщик задач по времени</p>
-            <p class="brand-note">личное и рабочее в одном аккуратном календаре</p>
-          </div>
-        </div>
-        <div class="header-identity">
-          <p class="identity-line">Год: <span id="yearLabel">-</span></p>
-          <p class="identity-line">неделя: <span id="weekNumber">-</span></p>
-        </div>
-        <div class="header-controls">
-          <div class="header-view-switch">
-            <button id="viewDayBtn" type="button" class="view-btn active">день</button>
-            <button id="viewWeekBtn" type="button" class="view-btn">неделя</button>
-            <button id="viewMonthBtn" type="button" class="view-btn">месяц</button>
-            <button id="viewYearBtn" type="button" class="view-btn">год</button>
-          </div>
-          <div class="header-quick-actions">
-            <label class="header-filter">фильтр:
-              <select id="categoryFilterSelect">
-                <option value="all">все</option>
-                <option value="personal">личное</option>
-                <option value="work">рабочее</option>
-              </select>
-            </label>
-            <button id="headerThemeBtn" type="button" class="header-theme-btn">стиль: строгий</button>
-            <button id="compactHeaderBtn" type="button" class="header-density-btn">компактно</button>
-          </div>
-        </div>
+  <main class="app">
+    <header class="hero card">
+      <div>
+        <h1 id="appTitle">To Do List</h1>
+        <p id="todayLabel" class="muted"></p>
       </div>
-      <div class="header-meta">
-        <p>прогресс недели: <span id="weekProgressLabel">0%</span></p>
-        <p>прогресс дня: <span id="dayProgressLabel">0%</span></p>
-        <div class="header-legend">
-          <span class="legend-item personal">личное</span>
-          <span class="legend-item work">рабочее</span>
-        </div>
-        <div class="header-counters">
-          <span>всего: <strong id="totalCountLabel">0</strong></span>
-          <span>выполнено: <strong id="doneCountLabel">0</strong></span>
-        </div>
+      <div class="hero-actions">
+        <button id="undoBtn" class="ghost" type="button" disabled>Отменить</button>
+        <button id="weeklyReportBtn" class="ghost" type="button">Отчет недели</button>
       </div>
     </header>
 
-    <section class="planner-layout">
-      <div class="main-day-panel card">
-        <div class="main-day-head">
-          <p id="mainDayTitle" class="main-day-title">-</p>
-          <div class="period-nav">
-            <button id="prevPeriodBtn" type="button">назад</button>
-            <button id="backToTodayBtn" type="button">сегодня</button>
-            <button id="nextPeriodBtn" type="button">вперед</button>
+    <section class="stats card">
+      <article><strong id="statTotal">0</strong><span>всего</span></article>
+      <article><strong id="statOpen">0</strong><span>активных</span></article>
+      <article><strong id="statDone">0</strong><span>выполнено</span></article>
+      <article><strong id="statProgress">0%</strong><span>прогресс</span></article>
+    </section>
+
+    <section class="card focus-card accordion" data-accordion="focus" data-open="true">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="true">
+          <span class="accordion-arrow">▾</span>
+          <span>Фокус дня</span>
+        </button>
+        <span id="focusDate" class="muted tiny"></span>
+      </div>
+      <div class="accordion-body focus-grid">
+        <article>
+          <span>Ближайшая</span>
+          <strong id="focusNextTask">нет активных задач</strong>
+        </article>
+        <article>
+          <span>Просрочено</span>
+          <strong id="focusOverdue">0</strong>
+        </article>
+        <article>
+          <span>Нагрузка</span>
+          <strong id="focusLoad">0 ч</strong>
+        </article>
+        <article>
+          <span>Подсказка</span>
+          <strong id="focusTip">день свободен</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="card week-plan-card accordion" data-accordion="weekPlan" data-open="true">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="true">
+          <span class="accordion-arrow">▾</span>
+          <span>План недели</span>
+        </button>
+        <span id="weekPlanRange" class="muted tiny"></span>
+      </div>
+      <div class="accordion-body">
+        <div id="weekPlanGrid" class="week-plan-grid"></div>
+        <div class="week-insights">
+          <article>
+            <span>Темы заметок</span>
+            <strong id="weekNoteThemes">нет данных</strong>
+          </article>
+          <article>
+            <span>Перегруз</span>
+            <strong id="weekOverload">нет</strong>
+          </article>
+          <article>
+            <span>Рекомендация</span>
+            <strong id="weekAdvice">запланируй 3-5 ключевых задач</strong>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ai-card accordion" data-accordion="analysis" data-open="false">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span class="accordion-arrow">▸</span>
+          <span>Анализ нагрузки</span>
+        </button>
+        <span class="muted tiny">локальные подсказки</span>
+      </div>
+      <div class="accordion-body hidden">
+        <ul id="aiTips" class="ai-tips"></ul>
+      </div>
+    </section>
+
+    <section class="card accordion" data-accordion="taskForm" data-open="false">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span class="accordion-arrow">▸</span>
+          <span>+ Новая задача</span>
+        </button>
+        <span class="muted tiny">форма добавления и фильтры</span>
+      </div>
+      <div class="accordion-body hidden">
+      <form id="taskForm" class="task-form">
+        <div id="formFeedback" class="feedback hidden" role="status" aria-live="polite"></div>
+
+        <div class="form-section">
+          <h3>Основное</h3>
+          <div class="form-grid">
+            <label class="field field-wide" for="titleInput">
+              <span>Название задачи</span>
+              <input id="titleInput" name="title" type="text" maxlength="120" placeholder="Например: Подготовить отчет" required>
+            </label>
+            <label class="field" for="dateInput">
+              <span>Дата</span>
+              <input id="dateInput" name="date" type="date" required>
+            </label>
+            <label class="field" for="timeInput">
+              <span>Время</span>
+              <input id="timeInput" name="time" type="time" value="09:00" required>
+            </label>
+            <label class="field" for="durationInput">
+              <span>Длительность</span>
+              <select id="durationInput" name="duration">
+                <option value="30">30 мин</option>
+                <option value="60" selected>1 час</option>
+                <option value="90">1.5 часа</option>
+                <option value="120">2 часа</option>
+                <option value="180">3 часа</option>
+              </select>
+            </label>
+            <label class="field" for="priorityInput">
+              <span>Приоритет</span>
+              <select id="priorityInput" name="priority">
+                <option value="low">низкий</option>
+                <option value="medium" selected>средний</option>
+                <option value="high">высокий</option>
+              </select>
+            </label>
+            <label class="field" for="categoryInput">
+              <span>Категория</span>
+              <select id="categoryInput" name="category">
+                <option value="work" selected>работа</option>
+                <option value="personal">личное</option>
+                <option value="study">учеба</option>
+                <option value="health">здоровье</option>
+              </select>
+            </label>
+            <label class="field field-wide" for="noteInput">
+              <span>Заметка</span>
+              <textarea id="noteInput" name="note" maxlength="500" rows="3" placeholder="Детали, ссылки, что именно нужно сделать"></textarea>
+            </label>
           </div>
         </div>
-        <div id="mainDayGrid" class="hour-grid"></div>
+
+        <div class="form-section">
+          <h3>Повторы</h3>
+          <div class="form-grid">
+            <label class="field" for="recurrenceInput">
+              <span>Режим повтора</span>
+              <select id="recurrenceInput" name="recurrence">
+                <option value="none" selected>без повтора</option>
+                <option value="daily">каждый день</option>
+                <option value="weekdays">по будням</option>
+                <option value="weekly">каждую неделю</option>
+                <option value="custom">выбрать дни</option>
+              </select>
+            </label>
+            <label class="field" for="repeatCountInput">
+              <span>Количество</span>
+              <select id="repeatCountInput" name="repeatCount">
+                <option value="1" selected>1 задача</option>
+                <option value="5">5 повторов</option>
+                <option value="10">10 повторов</option>
+                <option value="20">20 повторов</option>
+              </select>
+            </label>
+            <label class="field" for="repeatUntilInput">
+              <span>Повторять до</span>
+              <input id="repeatUntilInput" name="repeatUntil" type="date" title="повторять до даты">
+            </label>
+          </div>
+        </div>
+
+        <div id="repeatDaysBox" class="repeat-days hidden">
+          <span class="repeat-days-title">дни повторов:</span>
+          <div class="repeat-pills" role="group" aria-label="дни повторов">
+            <button class="repeat-day repeat-pill" type="button" data-day="1" aria-pressed="false">пн</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="2" aria-pressed="false">вт</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="3" aria-pressed="false">ср</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="4" aria-pressed="false">чт</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="5" aria-pressed="false">пт</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="6" aria-pressed="false">сб</button>
+            <button class="repeat-day repeat-pill" type="button" data-day="0" aria-pressed="false">вс</button>
+          </div>
+        </div>
+        <div id="repeatSummary" class="repeat-summary hidden"></div>
+        <div id="editScopeRow" class="edit-scope hidden">
+          <label for="editScopeSelect">редактировать:</label>
+          <select id="editScopeSelect">
+            <option value="single">только этот повтор</option>
+            <option value="series">всю серию</option>
+          </select>
+        </div>
+        <div class="actions-row">
+          <button id="saveBtn" type="submit">Добавить</button>
+          <button id="cancelEditBtn" type="button" class="ghost hidden">Отмена</button>
+        </div>
+      </form>
+
+      <div class="view-tabs" aria-label="режим просмотра">
+        <button class="view-tab is-active" type="button" data-view="today">Сегодня</button>
+        <button class="view-tab" type="button" data-view="list">Все задачи</button>
+        <button class="view-tab" type="button" data-view="week">Неделя</button>
+        <button class="view-tab" type="button" data-view="month">Месяц</button>
       </div>
-      <aside class="tomorrow-panel card">
-        <p class="tomorrow-title">обзор - завтра</p>
-        <div id="tomorrowMiniGrid" class="tomorrow-mini-grid"></div>
-      </aside>
-      <div class="week-strip-panel card">
-        <p class="week-counters-legend">
-          <strong>легенда:</strong>
-          <span class="legend-chip in-progress">в - в работе</span>
-          <span class="legend-chip done">с - сделано</span>
-          <span class="legend-chip overdue">п - просрочено</span>
-        </p>
-        <div id="weekStripBottom" class="week-days week-strip"></div>
+
+      <div class="toolbar">
+        <select id="viewModeSelect" class="hidden" aria-hidden="true" tabindex="-1">
+          <option value="today" selected>Сегодня</option>
+          <option value="list">Все задачи</option>
+          <option value="week">Неделя</option>
+          <option value="month">Месяц</option>
+        </select>
+        <select id="statusFilter">
+          <option value="all">Все</option>
+          <option value="open">Активные</option>
+          <option value="done">Выполненные</option>
+          <option value="archived">Архив</option>
+        </select>
+        <select id="categoryFilter">
+          <option value="all">Все категории</option>
+          <option value="work">Работа</option>
+          <option value="personal">Личное</option>
+          <option value="study">Учеба</option>
+          <option value="health">Здоровье</option>
+        </select>
+        <input id="searchInput" type="search" placeholder="Поиск по задаче и заметке">
+      </div>
+
+      <div class="category-legend" aria-label="цвета категорий">
+        <span><i class="cat-dot category-work"></i>Работа</span>
+        <span><i class="cat-dot category-personal"></i>Личное</span>
+        <span><i class="cat-dot category-study"></i>Учеба</span>
+        <span><i class="cat-dot category-health"></i>Здоровье</span>
+      </div>
+
+      <div id="weekPanel" class="week-panel hidden">
+        <div class="week-nav">
+          <button id="prevWeekBtn" class="ghost" type="button">Неделя -</button>
+          <strong id="weekLabel"></strong>
+          <button id="nextWeekBtn" class="ghost" type="button">Неделя +</button>
+          <button id="thisWeekBtn" class="ghost" type="button">Текущая</button>
+        </div>
+        <div id="weekGrid" class="week-grid"></div>
+      </div>
+
+      <div id="monthPanel" class="month-panel hidden">
+        <div class="week-nav">
+          <button id="prevMonthBtn" class="ghost" type="button">Месяц -</button>
+          <strong id="monthLabel"></strong>
+          <button id="nextMonthBtn" class="ghost" type="button">Месяц +</button>
+          <button id="thisMonthBtn" class="ghost" type="button">Текущий</button>
+        </div>
+        <div id="monthGrid" class="month-grid"></div>
+        <div id="monthDayPanel" class="month-day-panel hidden">
+          <div class="section-head">
+            <h3 id="monthDayTitle">Задачи дня</h3>
+            <button id="monthCreateTaskBtn" class="ghost" type="button">Новая задача на этот день</button>
+          </div>
+          <ul id="monthDayList" class="month-day-list"></ul>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <section id="listPanel" class="card">
+      <ul id="taskList" class="task-list"></ul>
+      <div id="emptyState" class="empty-state">
+        <p id="emptyHint" class="muted">Пока нет задач</p>
+        <div id="emptyActions" class="empty-actions">
+          <button type="button" class="ghost" data-template="first">Создать первую</button>
+          <button type="button" class="ghost" data-template="work">Работа</button>
+          <button type="button" class="ghost" data-template="health">Здоровье</button>
+          <button type="button" class="ghost" data-template="study">Учеба</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card settings-card accordion" data-accordion="settings" data-open="false">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span class="accordion-arrow">▸</span>
+          <span>Настройки</span>
+        </button>
+        <span class="muted tiny">сохраняются в браузере</span>
+      </div>
+      <div class="accordion-body settings-grid hidden">
+        <label class="field" for="plannerNameInput">
+          <span>Название</span>
+          <input id="plannerNameInput" type="text" maxlength="40" value="To Do List">
+        </label>
+        <label class="field" for="workStartInput">
+          <span>Начало дня</span>
+          <input id="workStartInput" type="time" value="09:00">
+        </label>
+        <label class="field" for="workEndInput">
+          <span>Конец дня</span>
+          <input id="workEndInput" type="time" value="18:00">
+        </label>
+        <label class="field" for="dayLimitInput">
+          <span>Лимит нагрузки, часов</span>
+          <input id="dayLimitInput" type="number" min="1" max="16" step="0.5" value="8">
+        </label>
+        <label class="field" for="themeSelect">
+          <span>Тема</span>
+          <select id="themeSelect">
+            <option value="warm" selected>теплая</option>
+            <option value="clear">свежая</option>
+          </select>
+        </label>
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" type="button">Сохранить настройки</button>
+          <button id="clearAllBtn" type="button" class="danger">Очистить все задачи</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card data-card accordion" data-accordion="data" data-open="false">
+      <div class="section-head accordion-head">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span class="accordion-arrow">▸</span>
+          <span>Данные</span>
+        </button>
+        <span class="muted tiny">резервные копии и архив</span>
+      </div>
+      <div class="accordion-body data-actions hidden">
+        <button id="exportBtn" class="ghost" type="button">Скачать резервную копию</button>
+        <label class="ghost file-label" for="importInput">Восстановить из копии</label>
+        <input id="importInput" type="file" accept="application/json" hidden>
+        <button id="clearCompletedBtn" class="ghost" type="button">В архив выполненные</button>
       </div>
     </section>
   </main>
 
-  <div id="taskModal" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="task"></div>
-    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
-      <h2 id="taskModalTitle">задача</h2>
-      <form id="taskForm" class="task-form">
-        <label>название
-          <input id="taskTitleInput" name="title" type="text" maxlength="120" required>
-        </label>
-        <label>дата
-          <input id="taskDateInput" name="date" type="date" required>
-        </label>
-        <label>время
-          <select id="taskTimeInput" name="time" required></select>
-        </label>
-        <label>длительность
-          <select id="taskDurationInput" name="durationHours" required></select>
-        </label>
-        <label>приоритет
-          <select id="taskPriorityInput" name="priority">
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </select>
-        </label>
-        <label>тип задачи
-          <select id="taskCategoryInput" name="category">
-            <option value="personal">личное</option>
-            <option value="work">рабочее</option>
-          </select>
-        </label>
-        <label class="checkbox-row">
-          <input id="taskRecurringInput" name="isRecurring" type="checkbox">
-          <span>повторяемость еженедельно</span>
-        </label>
-        <fieldset id="taskRecurringDaysGroup" class="recurring-days" disabled>
-          <legend>дни повторения</legend>
-          <label><input type="checkbox" name="recurringDays" value="0"> пн</label>
-          <label><input type="checkbox" name="recurringDays" value="1"> вт</label>
-          <label><input type="checkbox" name="recurringDays" value="2"> ср</label>
-          <label><input type="checkbox" name="recurringDays" value="3"> чт</label>
-          <label><input type="checkbox" name="recurringDays" value="4"> пт</label>
-          <label><input type="checkbox" name="recurringDays" value="5"> сб</label>
-          <label><input type="checkbox" name="recurringDays" value="6"> вс</label>
-        </fieldset>
-        <label>повторять до даты
-          <input id="taskRecurringUntilInput" name="recurringUntil" type="date" disabled>
-        </label>
-        <div class="modal-actions">
-          <button id="deleteTaskBtn" type="button" class="danger">удалить</button>
-          <button type="submit">сохранить</button>
-          <button id="cancelTaskBtn" type="button">отмена</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="monthModal" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="month"></div>
-    <div class="modal-dialog month-dialog" role="dialog" aria-modal="true" aria-labelledby="monthModalTitle">
-      <div class="month-modal-head">
-        <button id="monthPrevBtn" type="button" class="month-nav-btn" aria-label="предыдущий месяц">◀</button>
-        <div class="month-head-center">
-          <h2 id="monthModalTitle">календарь месяца</h2>
-          <p id="monthModalYear" class="month-modal-year">-</p>
-          <p id="monthModalLabel" class="month-modal-label">-</p>
-        </div>
-        <button id="monthNextBtn" type="button" class="month-nav-btn" aria-label="следующий месяц">▶</button>
-      </div>
-      <div id="monthGrid" class="month-grid"></div>
-    </div>
-  </div>
-
-  <div id="recurringActionModal" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="recurring-action"></div>
-    <div class="modal-dialog recurring-action-dialog" role="dialog" aria-modal="true" aria-labelledby="recurringActionTitle">
-      <h2 id="recurringActionTitle">повторяющаяся задача</h2>
-      <p id="recurringActionText">применить действие к этой задаче или к серии?</p>
-      <p id="recurringActionHint" class="recurring-action-hint" hidden>если выбрать всю серию для выполнения, серия завершится на текущей дате.</p>
-      <div class="modal-actions recurring-action-actions">
-        <button id="recurringOnlyBtn" type="button">только этот экземпляр</button>
-        <button id="recurringSeriesBtn" type="button">всю серию</button>
-        <button id="recurringCancelBtn" type="button">отмена</button>
+  <div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-card">
+      <h3 id="confirmTitle">Удаление повтора</h3>
+      <p id="confirmText">Выбери, что удалить.</p>
+      <div class="modal-actions">
+        <button id="confirmSeriesBtn" type="button" class="danger">Всю серию</button>
+        <button id="confirmSingleBtn" type="button" class="ghost">Только этот повтор</button>
+        <button id="confirmCancelBtn" type="button" class="ghost">Отмена</button>
       </div>
     </div>
   </div>
