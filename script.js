@@ -62,6 +62,8 @@
     importInput: document.getElementById('importInput'),
     viewModeSelect: document.getElementById('viewModeSelect'),
     viewTabs: Array.prototype.slice.call(document.querySelectorAll('.view-tab')),
+    mobileViewButtons: Array.prototype.slice.call(document.querySelectorAll('[data-mobile-view]')),
+    mobileAddBtn: document.getElementById('mobileAddBtn'),
     statusFilter: document.getElementById('statusFilter'),
     categoryFilter: document.getElementById('categoryFilter'),
     searchInput: document.getElementById('searchInput'),
@@ -193,6 +195,19 @@
         el.viewModeSelect.value = state.viewMode;
         render();
       });
+    }
+
+    for (var mv = 0; mv < el.mobileViewButtons.length; mv += 1) {
+      el.mobileViewButtons[mv].addEventListener('click', function () {
+        state.viewMode = this.getAttribute('data-mobile-view') || 'today';
+        el.viewModeSelect.value = state.viewMode;
+        render();
+        scrollToPlannerTop();
+      });
+    }
+
+    if (el.mobileAddBtn) {
+      el.mobileAddBtn.addEventListener('click', openTaskFormQuickly);
     }
 
     el.statusFilter.addEventListener('change', function () {
@@ -523,6 +538,11 @@
       el.viewTabs[i].classList.toggle('is-active', active);
       el.viewTabs[i].setAttribute('aria-pressed', active ? 'true' : 'false');
     }
+    for (var m = 0; m < el.mobileViewButtons.length; m += 1) {
+      var mobileActive = el.mobileViewButtons[m].getAttribute('data-mobile-view') === state.viewMode;
+      el.mobileViewButtons[m].classList.toggle('is-active', mobileActive);
+      el.mobileViewButtons[m].setAttribute('aria-pressed', mobileActive ? 'true' : 'false');
+    }
   }
 
   function renderPanels() {
@@ -594,6 +614,24 @@
         saveAccordionState();
         return;
       }
+    }
+  }
+
+  function openTaskFormQuickly() {
+    openAccordionByKey('taskForm');
+    if (!el.dateInput.value) {
+      el.dateInput.value = toISODate(new Date());
+    }
+    el.taskForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(function () {
+      el.titleInput.focus();
+    }, 260);
+  }
+
+  function scrollToPlannerTop() {
+    var target = state.viewMode === 'week' ? el.weekPanel : state.viewMode === 'month' ? el.monthPanel : el.listPanel;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
